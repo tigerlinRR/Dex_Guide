@@ -1,0 +1,8 @@
+# Backend service (used by both the dev-machine sim and the real robot)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pyyaml>=6.0
+# Extra deps needed on the real robot (Jetson, pip install --user):
+#   Robotic_Arm==1.1.6     RealMan arm SDK
+#   requests               AutoXing chassis REST
+#   websocket-client       AutoXing chassis low-level twist (optional)

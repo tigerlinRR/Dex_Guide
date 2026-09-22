@@ -1,0 +1,55 @@
+# Tour waypoint definitions — each stop = chassis pose + (optional) narration audio
+#                              + (optional) arm gesture.
+#
+# Most fields are filled in on-site:
+#   chassis_pose   marked on the SLAM map with the chassis tool (x,y metres, ori radians).
+#   arm_joints_deg the joint angles recorded via drag-teach after posing the "pointing" arm.
+#   audio          your own narration, placed under audio/.
+#
+# Below is EXAMPLE data (for the sim demo). On-site, replace coordinates / joint angles /
+# audio with the real values. Data model follows Dex_Elevator/configs/stations.yaml.
+
+stations:
+  - id: lobby
+    order: 1
+    name: "Reception / Welcome"
+    chassis_pose: {x: 0.0, y: 0.0, ori: 0.0}
+    audio: audio/01_welcome.wav
+    gesture:
+      arm: right
+      hand_pose: open
+      arm_joints_deg: [0.0, 20.0, -30.0, 0.0, 40.0, 0.0]   # example, record on-site
+    dwell: manual
+
+  - id: research_office
+    order: 2
+    name: "Research Office"
+    chassis_pose: {x: 5.2, y: -1.8, ori: 1.57}
+    audio: audio/02_research.wav
+    gesture:
+      arm: left
+      hand_pose: point            # index finger: that's the research office
+      arm_joints_deg: [30.0, 45.0, -50.0, -120.0, 90.0, 60.0]
+    dwell: manual
+
+  - id: admin_office
+    order: 3
+    name: "Admin Office"
+    chassis_pose: {x: 8.0, y: 2.5, ori: 3.14}
+    audio: audio/03_admin.wav
+    gesture:
+      arm: right
+      hand_pose: point
+      arm_joints_deg: [-30.0, 45.0, -50.0, 120.0, 90.0, -60.0]
+    dwell: manual
+
+  - id: demo_area
+    order: 4
+    name: "Demo Area"
+    chassis_pose: {x: 3.0, y: 6.0, ori: -1.57}
+    audio: audio/04_demo.wav
+    gesture:
+      arm: both
+      hand_pose: open             # both arms open: this is our demo area
+      arm_joints_deg: [0.0, 30.0, -40.0, 0.0, 50.0, 0.0]
+    dwell: manual

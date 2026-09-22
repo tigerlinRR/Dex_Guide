@@ -1,0 +1,13 @@
+[project]
+name = "dex-guide"
+version = "0.1.0"
+description = "Dex office tour guide — semi-automatic tour orchestration + web console"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pyyaml>=6.0"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["guide*"]

@@ -1,0 +1,13 @@
+# Arm "home / standby" pose — captured from the robot's current pose 2026-09-21 (degrees).
+# During a tour the arms hold this pose while navigating / not gesturing, and return here
+# after a gesture.
+# These arms are 7-DOF (RM75 family), so joint angles are 7 values, in degrees.
+# Capture method: RealMan JSON protocol get_joint_degree, median of 5 samples (de-jitter).
+
+arm_home:
+  left:
+    dof: 7
+    joints_deg: [-8.517, -99.865, 158.15, 55.441, 168.167, -101.423, 62.177]
+  right:
+    dof: 7
+    joints_deg: [26.58, -109.666, 163.73, 33.66, 47.173, 117.062, -256.19]

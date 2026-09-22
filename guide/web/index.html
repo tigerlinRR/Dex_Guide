@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Dex Guide Console</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171c24; --panel2: #1f2630; --line: #2a323d;
+    --text: #e6eaf0; --muted: #8b97a7; --accent: #3b82f6; --accent-d: #2563eb;
+    --ok: #22c55e; --warn: #f59e0b; --stop: #ef4444; --stop-d: #b91c1c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; min-height: 100%;
+  }
+  header {
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .3px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.live { background: var(--ok); box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
+  .badge {
+    margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .badge.sim { color: var(--warn); border-color: #4a3a1a; }
+  .badge.real { color: var(--ok); border-color: #1f3d2a; }
+
+  main { flex: 1; padding: 16px; max-width: 720px; width: 100%; margin: 0 auto; }
+
+  /* State banner */
+  .state {
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+    background: var(--panel); border: 1px solid var(--line);
+    transition: background .25s, border-color .25s;
+  }
+  .state .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .state .name { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+  .state .status { font-size: 15px; color: var(--muted); }
+  .state[data-s="NAVIGATING"] { border-color: var(--accent); background: linear-gradient(180deg, #16233a, var(--panel)); }
+  .state[data-s="PRESENTING"] { border-color: var(--ok); background: linear-gradient(180deg, #14281c, var(--panel)); }
+  .state[data-s="WAITING"]    { border-color: var(--warn); background: linear-gradient(180deg, #2a2210, var(--panel)); }
+  .state[data-s="ESTOP"]      { border-color: var(--stop); background: linear-gradient(180deg, #2c1414, var(--panel)); }
+  .spin { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:-2px;
+    border:2px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%;
+    animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* Controls */
+  .controls { display: grid; gap: 12px; margin-bottom: 20px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button {
+    font-family: inherit; font-size: 16px; font-weight: 600; color: #fff;
+    border: none; border-radius: 14px; padding: 18px 16px; cursor: pointer;
+    background: var(--panel2); transition: transform .05s, background .15s, opacity .15s;
+  }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); font-size: 20px; padding: 24px; }
+  .btn-primary:active { background: var(--accent-d); }
+  .btn-ghost { background: var(--panel2); border: 1px solid var(--line); }
+  .btn-stop {
+    background: var(--stop); font-size: 18px;
+    box-shadow: 0 0 0 1px rgba(239,68,68,.3);
+  }
+  .btn-stop:active { background: var(--stop-d); }
+
+  /* Station list */
+  h2 { font-size: 13px; color: var(--muted); text-transform: uppercase;
+       letter-spacing: 1px; margin: 0 0 10px 2px; }
+  .stations { display: grid; gap: 8px; }
+  .st {
+    display: flex; align-items: center; gap: 12px; padding: 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .st:active { background: var(--panel2); }
+  .st.current { border-color: var(--accent); background: #16233a; }
+  .st .num {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+    background: var(--panel2); color: var(--muted);
+  }
+  .st.current .num { background: var(--accent); color: #fff; }
+  .st .info { flex: 1; min-width: 0; }
+  .st .t { font-size: 15px; font-weight: 600; }
+  .st .tags { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .tag { display: inline-block; margin-right: 8px; }
+  .tag.on { color: var(--text); }
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="conn"></span>
+  <h1>Dex Guide Console</h1>
+  <span class="badge" id="backend">…</span>
+</header>
+
+<main>
+  <div class="state" id="state" data-s="IDLE">
+    <div class="label">Status</div>
+    <div class="name" id="stateName">Idle</div>
+    <div class="status" id="statusText">Connecting…</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-primary" id="btnNext">▶ Start Tour</button>
+    <div class="row">
+      <button class="btn-ghost" id="btnStart">Restart</button>
+      <button class="btn-ghost" id="btnStop">Stop</button>
+    </div>
+    <button class="btn-stop" id="btnEstop">■ E-STOP</button>
+  </div>
+
+  <h2>Stations</h2>
+  <div class="stations" id="stations"></div>
+</main>
+
+<footer>Tap a station to jump to it · Semi-auto: the robot waits after each stop until you press Next</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STATE_EN = { IDLE:"Idle", NAVIGATING:"Navigating", PRESENTING:"Presenting", WAITING:"Waiting for Next", ESTOP:"Emergency Stop" };
+
+let snap = null;
+
+async function post(path) {
+  try { await fetch(path, { method: "POST" }); }
+  catch (e) { /* ignore while offline; WS will reconnect */ }
+}
+
+$("btnStart").onclick = () => post("/api/start");
+$("btnStop").onclick  = () => post("/api/stop");
+$("btnEstop").onclick = () => { if (snap && snap.state === "ESTOP") post("/api/clear"); else post("/api/estop"); };
+$("btnNext").onclick  = () => {
+  if (!snap) return;
+  if (snap.state === "ESTOP") return;
+  if (snap.state === "IDLE" || snap.current_index === null) post("/api/start");
+  else post("/api/next");
+};
+
+function render(s) {
+  snap = s;
+  // backend badge
+  const b = $("backend");
+  b.textContent = s.backend === "real" ? "ROBOT" : "SIM";
+  b.className = "badge " + (s.backend === "real" ? "real" : "sim");
+
+  // state banner
+  $("state").dataset.s = s.state;
+  const busy = (s.state === "NAVIGATING" || s.state === "PRESENTING");
+  $("stateName").innerHTML = (busy ? '<span class="spin"></span>' : "") + (STATE_EN[s.state] || s.state);
+  $("statusText").textContent = s.status_text || "";
+
+  // primary button label + availability
+  const next = $("btnNext");
+  if (s.state === "ESTOP") { next.textContent = "Emergency Stop"; next.disabled = true; }
+  else if (busy)          { next.textContent = "Working…"; next.disabled = true; }
+  else if (s.state === "IDLE" || s.current_index === null) { next.textContent = "▶ Start Tour"; next.disabled = false; }
+  else                    { next.textContent = "▶ Next Station"; next.disabled = false; }
+  $("btnStart").disabled = busy;
+
+  // e-stop button becomes Reset while stopped
+  $("btnEstop").textContent = s.state === "ESTOP" ? "↻ Reset" : "■ E-STOP";
+
+  // station list
+  const box = $("stations");
+  box.innerHTML = "";
+  s.stations.forEach((st, i) => {
+    const el = document.createElement("div");
+    el.className = "st" + (i === s.current_index ? " current" : "");
+    el.onclick = () => { if (!busy && s.state !== "ESTOP") post("/api/goto/" + encodeURIComponent(st.id)); };
+    el.innerHTML =
+      `<div class="num">${st.order}</div>
+       <div class="info">
+         <div class="t">${st.name}</div>
+         <div class="tags">
+           <span class="tag ${st.has_audio ? "on" : ""}">🔊 ${st.has_audio ? "Audio" : "No audio"}</span>
+           <span class="tag ${st.has_gesture ? "on" : ""}">👉 ${st.has_gesture ? "Gesture" : "No gesture"}</span>
+         </div>
+       </div>`;
+    box.appendChild(el);
+  });
+}
+
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => { $("conn").className = "dot live"; ws.send("hi"); };
+  ws.onmessage = (e) => render(JSON.parse(e.data));
+  ws.onclose = () => { $("conn").className = "dot"; setTimeout(connect, 1200); };
+  ws.onerror = () => ws.close();
+}
+connect();
+</script>
+</body>
+</html>

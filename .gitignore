@@ -1,0 +1,21 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# 音频素材(体积大,单独管理)
+audio/*.wav
+audio/*.mp3
+
+# 本地/临时
+*.log
+.DS_Store
+
+# 凭据绝不入库(以防万一)
+*secret*
+*password*
+*.pem
+*.key
