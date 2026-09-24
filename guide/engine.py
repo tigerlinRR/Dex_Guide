@@ -24,6 +24,7 @@ from typing import Awaitable, Callable
 
 from guide.config import Station
 from guide.hardware.base import Arm, Audio, Chassis, Hand
+from guide.hardware.stop_runner import StopRunner
 
 
 class State(str, Enum):
@@ -43,6 +44,7 @@ class TourEngine:
         hand: Hand,
         audio: Audio,
         on_change: Callable[[dict], Awaitable[None]] | None = None,
+        stop_runner: StopRunner | None = None,
     ):
         self.stations = stations
         self.chassis = chassis
@@ -50,9 +52,14 @@ class TourEngine:
         self.hand = hand
         self.audio = audio
         self._on_change = on_change
+        self.stop_runner = stop_runner
+        # True while a run_stop playback may have left the arms out of the travel pose
+        # (it was interrupted or failed) — the next drive tucks them first.
+        self._arms_out = False
 
         self.state = State.IDLE
         self.current_index: int | None = None   # current / last station
+        self.arrived = False                     # did we actually reach current_index?
         self.status_text = "Idle"
         self._task: asyncio.Task | None = None   # the action sequence currently running
 
@@ -62,14 +69,15 @@ class TourEngine:
             "state": self.state.value,
             "status_text": self.status_text,
             "current_index": self.current_index,
+            "arrived": self.arrived,
             "current_station": (
                 self.stations[self.current_index].id
                 if self.current_index is not None else None
             ),
             "stations": [
-                {"id": s.id, "name": s.name, "order": s.order,
+                {"id": s.id, "name": s.name, "subtitle": s.subtitle, "order": s.order,
                  "has_audio": bool(s.audio),
-                 "has_gesture": bool(s.gesture and s.gesture.arm != "none")}
+                 "has_gesture": bool(s.run_stop or (s.gesture and s.gesture.arm != "none"))}
                 for s in self.stations
             ],
         }
@@ -94,10 +102,16 @@ class TourEngine:
         """Go to the next station. Valid only in WAITING (or IDLE) — pressed by the operator."""
         if self.state not in (State.WAITING, State.IDLE):
             return
-        nxt = 0 if self.current_index is None else self.current_index + 1
+        if self.current_index is None:
+            nxt = 0
+        elif not self.arrived:
+            nxt = self.current_index   # never reached it (blocked/paused/e-stop) — retry, don't skip
+        else:
+            nxt = self.current_index + 1
         if nxt >= len(self.stations):
             self.state = State.IDLE
             self.current_index = None
+            self.arrived = False
             await self._emit("Tour complete — this was the last station")
             return
         await self._go_to_index(nxt)
@@ -112,13 +126,27 @@ class TourEngine:
             return
         await self._go_to_index(idx)
 
-    async def stop_tour(self) -> None:
-        """Gently end the tour: cancel the current action, return to IDLE (not an e-stop)."""
+    async def pause(self) -> None:
+        """Halt the current drive/narration but keep the tour position. If we hadn't
+        arrived yet, the next Next retries the same stop instead of skipping it."""
+        if self.state not in (State.NAVIGATING, State.PRESENTING):
+            return
         await self._cancel_task()
-        await self.chassis.cancel()
-        await self.audio.stop()
+        await asyncio.gather(self.chassis.cancel(), self.audio.stop(),
+                             return_exceptions=True)
+        self.state = State.WAITING
+        where = self.stations[self.current_index].name
+        await self._emit(f"Paused {'at' if self.arrived else 'before reaching'} {where}")
+
+    async def stop_tour(self) -> None:
+        """End the tour: cancel the current action, back to IDLE, position reset (not an e-stop)."""
+        await self._cancel_task()
+        await asyncio.gather(self.chassis.cancel(), self.audio.stop(),
+                             return_exceptions=True)
         self.state = State.IDLE
-        await self._emit("Tour stopped")
+        self.current_index = None
+        self.arrived = False
+        await self._emit("Tour ended")
 
     async def estop(self) -> None:
         """E-stop: immediately halt the base, arms and audio."""
@@ -132,8 +160,10 @@ class TourEngine:
 
     async def clear_estop(self) -> None:
         if self.state == State.ESTOP:
-            self.state = State.IDLE
-            await self._emit("Reset — idle")
+            # keep the tour position so the operator can carry on (Next retries the stop
+            # if we were interrupted before arriving)
+            self.state = State.IDLE if self.current_index is None else State.WAITING
+            await self._emit("Reset — ready")
 
     # -- internal: run one station's full action sequence ------------------
     async def _go_to_index(self, idx: int) -> None:
@@ -155,6 +185,11 @@ class TourEngine:
             # 1) navigate
             self.state = State.NAVIGATING
             self.current_index = idx
+            self.arrived = False
+            if self._arms_out and self.stop_runner:
+                await self._emit("Tucking arms before driving")
+                await self.stop_runner.tuck()
+                self._arms_out = False
             await self._emit(f"Going to {station.name}")
             p = station.chassis_pose
             ok = await self.chassis.navigate_to(
@@ -163,6 +198,8 @@ class TourEngine:
                 self.state = State.WAITING
                 await self._emit(f"Could not reach {station.name} (cancelled or blocked)")
                 return
+
+            self.arrived = True
 
             # 2) present: audio + gesture concurrently
             self.state = State.PRESENTING
@@ -179,6 +216,12 @@ class TourEngine:
             await self._emit(f"{station.name} error: {exc}")
 
     async def _present(self, station: Station) -> None:
+        if station.run_stop and self.stop_runner:
+            # the finalized ~/dex_guide playback owns gesture + narration for this stop
+            self._arms_out = True
+            await self.stop_runner.run(station.run_stop)
+            self._arms_out = False
+            return
         jobs = []
         if station.audio:
             jobs.append(self.audio.play(station.audio))

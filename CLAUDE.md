@@ -46,6 +46,20 @@ Wired (Mac on the same switch): `192.168.12.x`; the robot's internal net is also
   **TODO**: disable key expiry for this node in the Tailscale admin console (else it drops
   offline in ~6 months).
 
+## Tablet access & playback (2026-09-23)
+
+- **The operator tablet joins the robot's own hotspot `dex-teleop` (5 GHz) and opens
+  `http://10.42.0.1:8600`.** `dex-teleop-hotspot.service` (enabled) turns the Jetson's ONE
+  wifi radio into that AP on boot, so the Jetson is then **off site WiFi, has no internet,
+  and Tailscale shows offline** — reach it over wired `192.168.12.131` instead.
+- The console runs on the Jetson as systemd `dex-guide` (`~/Dex_Guide`, deployed with
+  `deploy/push.sh`; `JETSON=rr@192.168.12.131` when Tailscale is down).
+- **Gesture + narration per stop are NOT done by this repo**: `run_stop:` in
+  stations.generated.yaml hands each stop to the colleague's finalized
+  `~/dex_guide/run_stop.py <name>` (teleop conda env; needs `dex-teleop.service` up,
+  which starts on boot). `~/dex_guide` is theirs — don't edit it. If a playback is
+  interrupted, the engine runs `~/dex_guide/go_travel.py` before the next drive.
+
 ## The robot-api wrapper (/opt/robot-api, PM2 name "robot-api", :3000)
 
 Richtech's Express server exposing AutoXing's `@autoxing/robot-js-sdk` over HTTP. Endpoints:
@@ -60,6 +74,12 @@ The robot can play our own files. On the Jetson, play a wav directly to the WOND
 `paplay --device=alsa_output.usb-WONDOM_WONDOM_Audio_20220112-00.analog-stereo <file>.wav`
 (pw-play/aplay/sox are all present). Verified audible 2026-09-21. Richtech's own audio
 plugin also uses this sink; PipeWire mixes, so there's no conflict.
+- **After every reboot audio silently breaks**: PipeWire sets the WONDOM card profile to
+  `off` (so no sink exists) and the sink name can gain a `.2` suffix. Fix: `pactl
+  set-card-profile alsa_card.usb-WONDOM_WONDOM_Audio_20220112-00 output:analog-stereo`, then
+  resolve the sink name live (`pactl list short sinks | grep -i wondom`), unmute, set volume.
+  The `robot/play_station*.py` scripts already do this. Note `rr` is **UID 2002** here
+  (`XDG_RUNTIME_DIR=/run/user/2002`), so don't hardcode `/run/user/1000`.
 
 ## Arm read/control (no SDK needed, from any machine)
 
@@ -84,6 +104,30 @@ Interface-first (like Dex_Elevator):
 - `configs/arm_home.yaml` — recorded arm standby pose (7-DOF).
 - `tools/import_pois.py` — pulls robot POIs into a stations config.
 
+## Tour gesture+narration playback (`robot/`, DONE for all 4 stops)
+
+This is the real, working per-stop playback — separate from the `guide/` FastAPI skeleton.
+Runtime lives on the Jetson at `~/dex_guide/`; a clean snapshot is in `robot/`.
+
+- **Entry point (UI contract):** on the Jetson, `conda activate teleop; python
+  ~/dex_guide/run_stop.py Guide1|Guide2|Guide3|Guide4`. Blocks until the stop finishes
+  (audio + gesture + tuck to travel pose), exit 0 = ok. Self-heals (resumes a latched arm,
+  fixes the audio sink, retries on a servo latch). `run_tour.py` chains all four.
+- **Recipes:** `robot/stations.yaml` — per-stop gesture segments + narration cue times.
+  Edit here to retime; no code change needed.
+- **How it runs:** gestures replay **through the teleop stack** (`~/teleop/bin/motion_recorder.py`:
+  redis → servo_realman → canfd), NOT the direct-JSON path below. Sources are the Quest
+  teleop recordings `Wave/Talk/Left/Right`; `robot/build_*.py` trim/smooth/bridge them into
+  the per-stop motions. Narration wav is played to the WONDOM sink in lock-step.
+- **Key choices** (see PROGRESS 2026-09-23): 1.0x replay is safe (`REPLAY_MAX_DEG_PER_TICK=8.0`);
+  point gestures start with a `travel→apex` cosine bridge (no `movej` "捧胸"); returns are
+  `apex→travel` bridges cued *before* the narration ends; Guide1's opening is composed
+  per-arm so the two hands never meet at centre (right-hand wave, left stays at travel).
+- The **travel pose** (`robot/gestures/travel.json`) is the rest/return/inter-stop pose.
+- **`gesture_tool.py`** is the earlier hand-drag / direct-RealMan-`movej` authoring path —
+  kept as a tech reserve + arm-read/drag utility, but NOT how the final tour plays.
+- **Not wired yet:** base navigation between stops (needs `robot-api :3000` `moveTo`).
+
 ## Run (sim, any laptop)
 
 ```
@@ -96,7 +140,9 @@ Real backend: `GUIDE_BACKEND=real` (must be able to reach the robot; run on/near
 ## Waypoints (synced 2026-09-21)
 
 5 tour stops Guide1–Guide5 (+ dock "Charging pile - Dex Guide"). Coordinates in
-`configs/stations.generated.yaml`. **Gesture and audio per stop still to be recorded.**
+`configs/stations.generated.yaml`. **Gesture + narration DONE for Guide1–4** (see
+`## Tour gesture+narration playback` and `robot/`); Guide5 was dropped by the user.
+Base navigation between stops is the remaining piece.
 
 ## A gesture gotcha (from Dex_Elevator, re-verify here)
 

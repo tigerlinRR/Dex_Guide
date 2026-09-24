@@ -13,16 +13,16 @@ runnable only on the robot itself. Reuse Dex_Elevator/core/robot/realman.py and
 core/hand/linkerhand.py. NOTE: the arm controller ALSO speaks JSON/TCP on :8080, which
 is reachable off-robot — reads work today; motion needs supervised on-site testing.
 
-**Audio (RealAudio)**: per the user's decision, use the robot's built-in speaker — but
-the wrapper API exposes no play endpoint, so this needs SSH into the Jetson (play a wav
-to the WONDOM PipeWire sink). Currently a placeholder (no sound, just holds the
-presentation dwell) until that's wired.
+**Audio (RealAudio)**: the wrapper API has no play endpoint, so the server must run ON
+the Jetson and plays the wav straight to the WONDOM PipeWire sink with `paplay`.
+Use .wav (paplay/libsndfile on the Jetson may not decode mp3).
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import math
+import os
 import urllib.request
 
 from guide.hardware.base import Arm, Audio, Chassis, Hand
@@ -125,22 +125,46 @@ class RealHand(Hand):
         raise NotImplementedError(_NEEDS_ROBOT_SDK)
 
 
-class RealAudio(Audio):
-    """Placeholder: the user chose the robot's built-in speaker, but the wrapper API
-    exposes no play endpoint (pending SSH/Richtech). For now emits no sound, just holds
-    the presentation dwell (placeholder_seconds) so the real flow can exercise navigation."""
+WONDOM_SINK = "alsa_output.usb-WONDOM_WONDOM_Audio_20220112-00.analog-stereo"
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    def __init__(self, placeholder_seconds: float = 4.0):
-        self.placeholder_seconds = placeholder_seconds
-        self._interrupt = asyncio.Event()
+
+class RealAudio(Audio):
+    """Plays a wav on the robot's built-in speaker via `paplay` (must run on the Jetson,
+    as the desktop user so it can reach that user's PipeWire session). play() returns
+    when the clip ends; stop() kills it."""
+
+    def __init__(self, sink: str | None = None):
+        self.sink = sink or os.environ.get("GUIDE_AUDIO_SINK", WONDOM_SINK)
+        self._proc: asyncio.subprocess.Process | None = None
 
     async def play(self, path: str) -> bool:
-        self._interrupt.clear()
+        await self.stop()
+        full = path if os.path.isabs(path) else os.path.join(_PROJECT_ROOT, path)
+        if not os.path.isfile(full):
+            raise FileNotFoundError(f"audio file not found: {path}")
+        proc = self._proc = await asyncio.create_subprocess_exec(
+            "paplay", f"--device={self.sink}", full,
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
         try:
-            await asyncio.wait_for(self._interrupt.wait(), timeout=self.placeholder_seconds)
-            return False
-        except asyncio.TimeoutError:
-            return True
+            _, err = await proc.communicate()
+        except asyncio.CancelledError:
+            await self.stop()
+            raise
+        if self._proc is proc:
+            self._proc = None
+        rc = proc.returncode
+        if rc < 0:
+            return False            # killed by stop()
+        if rc != 0:
+            raise RuntimeError(f"paplay failed ({rc}): {err.decode(errors='replace').strip()}")
+        return True
 
     async def stop(self) -> None:
-        self._interrupt.set()
+        proc, self._proc = self._proc, None
+        if proc and proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                proc.kill()

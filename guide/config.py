@@ -27,9 +27,12 @@ class Station:
     order: int
     name: str                              # display name, e.g. "Research Office"
     chassis_pose: dict                     # {x, y, ori}, SLAM map coords
+    subtitle: str = ""                     # one-line hint for the operator, e.g. "Demo area"
     audio: str | None = None               # narration file path (relative to project root)
     gesture: Gesture | None = None
     dwell: str = "manual"                  # manual = stop and wait for the operator to press Next
+    run_stop: str | None = None            # stop name in ~/dex_guide/stations.yaml; if set, its
+                                           # run_stop.py playback replaces audio + gesture here
 
 
 def _parse_station(raw: dict) -> Station:
@@ -45,10 +48,12 @@ def _parse_station(raw: dict) -> Station:
         id=raw["id"],
         order=int(raw.get("order", 0)),
         name=raw.get("name", raw["id"]),
+        subtitle=raw.get("subtitle", ""),
         chassis_pose=raw["chassis_pose"],
         audio=raw.get("audio"),
         gesture=gesture,
         dwell=raw.get("dwell", "manual"),
+        run_stop=raw.get("run_stop"),
     )
 
 

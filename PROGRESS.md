@@ -2,6 +2,58 @@
 
 Dex_Guide progress log (newest first).
 
+## 2026-09-23 — Tour gestures + narration finished for all 4 stops (`robot/`)
+
+The per-stop gesture + narration playback is done and finalized. Runtime lives on the
+Jetson under `~/dex_guide/`; a clean snapshot is committed here under `robot/`.
+
+### How a stop plays
+- **Entry point (the UI contract):** `python ~/dex_guide/run_stop.py Guide1|Guide2|Guide3|Guide4`
+  — blocks until the stop finishes (audio + gesture + tuck to travel pose), exit 0 = ok.
+  `run_tour.py` chains all four for testing. Recipes live in `stations.yaml`.
+- Gestures play **through the teleop stack** (`~/teleop/bin/motion_recorder.py` replay:
+  redis → servo_realman → canfd), from Quest teleop recordings `Wave/Talk/Left/Right`.
+- Narration is a wav played to the WONDOM sink, kept in lock-step with the arm.
+
+### Motion-authoring decisions (why the final shape)
+- **Rejected: hand-drag "direct move" authoring** (`gesture_tool.py`, direct RealMan
+  JSON `movej`/drag-teach — kept in `robot/` as the idea/tooling). It worked as a tech
+  reserve, but off-robot `movej` streaming was jerky and the safety envelope was ours to
+  babysit. **Chosen:** the colleague's Quest-teleop recordings replayed at 50 Hz canfd —
+  smoother, and servo_realman owns the safety (per-tick clamp, e-stop latch). Its output
+  test recordings were deleted.
+- **Speed:** 1.0x replay is safe (the "1.0x e-stops" we saw were a false positive — a
+  benign `not in servo mode` during the approach, not `emergency`). `REPLAY_MAX_DEG_PER_TICK=8.0`.
+- **No forward-cup "捧胸" at a stop start:** point gestures start with a cosine bridge
+  `travel→apex` (`*_point`), not a blocking `movej` approach.
+- **Return before the audio ends:** each stop's return is a streamed bridge `apex→travel`
+  (`Ret_from_*`), cued a few seconds before the narration finishes, so the arm is already
+  tucking as the last words play — never after silence.
+- **Collision-safe opening (Guide1):** the wave is the only place both arms swung to the
+  centre. Guide1 is composed per-arm so only one arm is ever forward — right-hand wave
+  (left stays at travel) → two-arm talk (arms stay on opposite sides) → two-arm point at
+  ADAM. A `smooth_cols(15)` pass over the whole trajectory blends the bridge/gesture seams.
+
+### Final per-stop recipes (`stations.yaml`)
+- **Guide1** (continuous): right-hand wave → talk 0.4x → two-arm point at ADAM @18s → hold → return @21.5s.
+- **Guide2**: point left (Adam+Scorpion) @1s → sweep right (Dusty) @15.4s → return @21s.
+- **Guide3**: point right (sales/marketing) @0 → sweep left (R&D) @6.9s → return @13s.
+- **Guide4**: point left @0 → return @13s.
+- The **travel pose** (`gestures/travel.json`, user-posed, arms tucked, hands apart) is the
+  rest/return/inter-stop pose; every stop ends there so the base can navigate safely.
+
+### Also handled today
+- **Audio self-heal:** after every reboot PipeWire sets the WONDOM card profile to `off`
+  (no sink) and the sink name can gain a `.2` suffix. The play scripts now set
+  `output:analog-stereo`, resolve the sink name live, unmute, and set volume. (`rr` is UID
+  **2002** on this unit, not 1000.)
+- Cue times came from silence-gap analysis of each narration wav (no ASR on the box) + tuning by ear.
+
+### Next
+- **Wire the UI** (user driving) → button/Next calls `run_stop.py <stop>`.
+- **Base navigation between stops** is NOT wired yet — needs `robot-api :3000` `moveTo`
+  between stops, then the full arrive → play → Next → drive loop.
+
 ## 2026-09-21 — Bring-up, remote access, audio verified, waypoints synced
 
 ### Network / bring-up

@@ -1,0 +1,21 @@
+# systemd unit for the guide console on the Jetson. Installed by deploy/install.sh,
+# which fills in @USER@ / @UID@ / @DIR@.
+# Runs as the desktop user so paplay can reach that user's PipeWire session.
+[Unit]
+Description=Dex Guide console (:8600)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@
+Environment=GUIDE_BACKEND=real
+Environment=GUIDE_STATIONS=@DIR@/configs/stations.generated.yaml
+Environment=GUIDE_CHASSIS_HOST=127.0.0.1
+Environment=XDG_RUNTIME_DIR=/run/user/@UID@
+ExecStart=@DIR@/.venv/bin/uvicorn guide.server:app --host 0.0.0.0 --port 8600
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

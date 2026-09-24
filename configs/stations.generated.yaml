@@ -1,64 +1,50 @@
-# Dex guide waypoints — synced from the robot map (2026-09-21), full-precision real coords.
-# Gesture/audio still to record: gesture via drag-teach (7-DOF joint angles), audio later.
-# Dock (not a tour stop): Charging pile - Dex Guide.
+# Dex guide waypoints — synced from the robot map, full-precision real coords.
+# Guide5 removed per request (boss: skip that stop). Tour is now Guide1-Guide4.
+# audio: file per stop (AI TTS). Use the .wav under audio/wav/ — paplay on the Jetson may not decode mp3.
+# run_stop: this stop's name in ~/dex_guide/stations.yaml on the Jetson. When set, the
+#   finalized run_stop.py playback plays gesture + narration and `audio:` is not used.
 
 stations:
   - id: "6ab1c0af4f38299be615688e"
     order: 1
     name: "Guide1"
-    poi_name: "Guide1"        # name on the robot map
+    subtitle: "Welcome · Reception"
+    poi_name: "Guide1"
     chassis_pose: {x: 28.0975, y: -1.5600, ori: 5.1831}   # yaw=296.97 deg
-    audio: null            # TODO record/generate
-    # gesture:             # TODO drag-teach (7-DOF)
-    #   arm: right
-    #   hand_pose: point
-    #   arm_joints_deg: []
+    audio: audio/wav/Guide1.wav
+    run_stop: Guide1
+    # gesture:             # TODO: record via VR
     dwell: manual
 
   - id: "6ab1c065372bf7b4ebdce375"
     order: 2
     name: "Guide2"
-    poi_name: "Guide2"        # name on the robot map
+    subtitle: "Demo area"
+    poi_name: "Guide2"
     chassis_pose: {x: 24.7250, y: -9.6175, ori: 5.2431}   # yaw=300.41 deg
-    audio: null            # TODO record/generate
-    # gesture:             # TODO drag-teach (7-DOF)
-    #   arm: right
-    #   hand_pose: point
-    #   arm_joints_deg: []
+    audio: audio/wav/Guide2.wav
+    run_stop: Guide2
+    # gesture:             # TODO: record via VR
     dwell: manual
 
   - id: "6ab1c12c1448774f07393951"
     order: 3
     name: "Guide3"
-    poi_name: "Guide3"        # name on the robot map
+    subtitle: "Sales & Marketing · R&D"
+    poi_name: "Guide3"
     chassis_pose: {x: 9.1725, y: -25.7350, ori: 4.3801}   # yaw=250.96 deg
-    audio: null            # TODO record/generate
-    # gesture:             # TODO drag-teach (7-DOF)
-    #   arm: right
-    #   hand_pose: point
-    #   arm_joints_deg: []
+    audio: audio/wav/Guide3.wav
+    run_stop: Guide3
+    # gesture:             # TODO: record via VR
     dwell: manual
 
   - id: "6ab1c1847055d9748b11f09b"
     order: 4
     name: "Guide4"
-    poi_name: "Guide4"        # name on the robot map
+    subtitle: "Engineering & Technicians"
+    poi_name: "Guide4"
     chassis_pose: {x: 3.9150, y: -2.9700, ori: 2.9199}   # yaw=167.30 deg
-    audio: null            # TODO record/generate
-    # gesture:             # TODO drag-teach (7-DOF)
-    #   arm: right
-    #   hand_pose: point
-    #   arm_joints_deg: []
-    dwell: manual
-
-  - id: "6ab1c1ac8af2372c7f6340d7"
-    order: 5
-    name: "Guide5"
-    poi_name: "Guide5"        # name on the robot map
-    chassis_pose: {x: -3.8875, y: 1.5250, ori: 1.52}   # yaw=87.09 deg
-    audio: null            # TODO record/generate
-    # gesture:             # TODO drag-teach (7-DOF)
-    #   arm: right
-    #   hand_pose: point
-    #   arm_joints_deg: []
+    audio: audio/wav/Guide4.wav
+    run_stop: Guide4
+    # gesture:             # TODO: record via VR
     dwell: manual

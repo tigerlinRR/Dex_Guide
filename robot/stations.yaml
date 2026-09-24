@@ -1,0 +1,29 @@
+# Dex office-tour stops - finalized. First gesture bridges FROM the travel pose (no
+# forward-cup movej approach). Each stop begins its return BEFORE the narration ends,
+# streaming apex->travel, so the arms are already tucking as the last words play.
+stations:
+  Guide1:
+    type: continuous
+    motion: Guide1_motion       # travel->wave->slow talk->point ADAM@18s->hold->travel@21.5s
+    audio: /home/rr/dex_guide/audio/Guide1.wav
+    travel_after: true          # safety: ensure exact travel pose after the motion
+  Guide2:
+    type: seq
+    audio: /home/rr/dex_guide/audio/Guide2.wav       # 25.0s
+    segments:
+      - {motion: Guide2_point,   cue: 1}      # point left (Adam+Scorpion) from travel
+      - {motion: Guide2_swing,   cue: 15.4}   # sweep right for Dusty
+      - {motion: Ret_from_right, cue: 21.0}   # return (right->travel) before the end
+  Guide3:
+    type: seq
+    audio: /home/rr/dex_guide/audio/Guide3.wav       # 15.6s
+    segments:
+      - {motion: Guide3_point,  cue: 0}       # point right (sales/marketing) from travel
+      - {motion: Guide3_swing,  cue: 6.9}     # sweep left for R&D
+      - {motion: Ret_from_left, cue: 13.0}    # return (left->travel) before the end
+  Guide4:
+    type: seq
+    audio: /home/rr/dex_guide/audio/Guide4.wav       # 16.7s
+    segments:
+      - {motion: Guide2_point,  cue: 0}       # point left from travel
+      - {motion: Ret_from_left, cue: 13.0}    # return before the end

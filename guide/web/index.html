@@ -2,203 +2,288 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Dex Guide Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f6f7f9" />
+<title>Dex Guide</title>
 <style>
   :root {
-    --bg: #0e1116; --panel: #171c24; --panel2: #1f2630; --line: #2a323d;
-    --text: #e6eaf0; --muted: #8b97a7; --accent: #3b82f6; --accent-d: #2563eb;
-    --ok: #22c55e; --warn: #f59e0b; --stop: #ef4444; --stop-d: #b91c1c;
+    --bg: #f6f7f9; --card: #ffffff; --line: #e3e6eb; --text: #14181f; --muted: #6b7482;
+    --accent: #2563eb; --accent-ink: #ffffff; --accent-soft: #e8efff;
+    --ok: #16a34a; --warn: #d97706; --stop: #dc2626; --stop-ink: #ffffff;
+    --done: #94a3b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116; --card: #171c24; --line: #2a323d; --text: #e9edf2; --muted: #8e99a8;
+      --accent: #3b82f6; --accent-soft: #16233a; --done: #4b5563;
+    }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; }
   body {
     background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    display: flex; flex-direction: column; min-height: 100%;
+    min-height: 100dvh; display: flex; flex-direction: column;
+    -webkit-user-select: none; user-select: none;
   }
-  header {
-    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
-    border-bottom: 1px solid var(--line); background: var(--panel);
-  }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .3px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-  .dot.live { background: var(--ok); box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
-  .badge {
-    margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
-    border: 1px solid var(--line); color: var(--muted); text-transform: uppercase;
-    letter-spacing: .5px;
-  }
-  .badge.sim { color: var(--warn); border-color: #4a3a1a; }
-  .badge.real { color: var(--ok); border-color: #1f3d2a; }
+  .wrap { width: 100%; max-width: 560px; margin: 0 auto; padding: 0 16px; }
 
-  main { flex: 1; padding: 16px; max-width: 720px; width: 100%; margin: 0 auto; }
+  /* top bar */
+  header { padding: 14px 0 6px; }
+  header .wrap { display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--stop); }
+  .conn.live i { background: var(--ok); }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line);
+    color: var(--muted); letter-spacing: .4px; }
+  .badge.sim { color: var(--warn); }
+  .end { margin-left: auto; background: none; border: 0; color: var(--muted); font: inherit;
+    font-size: 14px; padding: 8px 4px; cursor: pointer; }
+  .end:disabled { visibility: hidden; }
 
-  /* State banner */
-  .state {
-    border-radius: 16px; padding: 20px; margin-bottom: 16px;
-    background: var(--panel); border: 1px solid var(--line);
-    transition: background .25s, border-color .25s;
-  }
-  .state .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
-  .state .name { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
-  .state .status { font-size: 15px; color: var(--muted); }
-  .state[data-s="NAVIGATING"] { border-color: var(--accent); background: linear-gradient(180deg, #16233a, var(--panel)); }
-  .state[data-s="PRESENTING"] { border-color: var(--ok); background: linear-gradient(180deg, #14281c, var(--panel)); }
-  .state[data-s="WAITING"]    { border-color: var(--warn); background: linear-gradient(180deg, #2a2210, var(--panel)); }
-  .state[data-s="ESTOP"]      { border-color: var(--stop); background: linear-gradient(180deg, #2c1414, var(--panel)); }
-  .spin { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:-2px;
-    border:2px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%;
-    animation: sp .8s linear infinite; }
-  @keyframes sp { to { transform: rotate(360deg); } }
+  main { flex: 1; padding-bottom: 120px; }
 
-  /* Controls */
-  .controls { display: grid; gap: 12px; margin-bottom: 20px; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  button {
-    font-family: inherit; font-size: 16px; font-weight: 600; color: #fff;
-    border: none; border-radius: 14px; padding: 18px 16px; cursor: pointer;
-    background: var(--panel2); transition: transform .05s, background .15s, opacity .15s;
-  }
-  button:active { transform: scale(.98); }
-  button:disabled { opacity: .38; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); font-size: 20px; padding: 24px; }
-  .btn-primary:active { background: var(--accent-d); }
-  .btn-ghost { background: var(--panel2); border: 1px solid var(--line); }
-  .btn-stop {
-    background: var(--stop); font-size: 18px;
-    box-shadow: 0 0 0 1px rgba(239,68,68,.3);
-  }
-  .btn-stop:active { background: var(--stop-d); }
+  /* offline banner */
+  .offline { display: none; margin: 8px 0; padding: 10px 12px; border-radius: 10px;
+    background: #fdecec; color: #991b1b; font-size: 14px; }
+  body.offline .offline { display: block; }
 
-  /* Station list */
-  h2 { font-size: 13px; color: var(--muted); text-transform: uppercase;
-       letter-spacing: 1px; margin: 0 0 10px 2px; }
-  .stations { display: grid; gap: 8px; }
-  .st {
-    display: flex; align-items: center; gap: 12px; padding: 14px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    cursor: pointer; transition: border-color .15s, background .15s;
-  }
-  .st:active { background: var(--panel2); }
-  .st.current { border-color: var(--accent); background: #16233a; }
-  .st .num {
-    width: 26px; height: 26px; border-radius: 50%; flex: none;
-    display: grid; place-items: center; font-size: 13px; font-weight: 700;
-    background: var(--panel2); color: var(--muted);
-  }
-  .st.current .num { background: var(--accent); color: #fff; }
-  .st .info { flex: 1; min-width: 0; }
-  .st .t { font-size: 15px; font-weight: 600; }
-  .st .tags { font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .tag { display: inline-block; margin-right: 8px; }
-  .tag.on { color: var(--text); }
-  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 14px; }
+  /* stepper */
+  .steps { display: grid; gap: 8px; margin: 14px 0 16px; }
+  .steps { grid-template-columns: repeat(var(--n, 4), 1fr); }
+  .step { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 10px 6px; text-align: center; cursor: pointer; font: inherit; color: var(--text); }
+  .step b { display: block; font-size: 18px; }
+  .step span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step.done { color: var(--done); }
+  .step.done b::after { content: " ✓"; font-size: 14px; }
+  .step.here { border-color: var(--accent); background: var(--accent-soft); }
+  .step.target { border-style: dashed; border-color: var(--accent); }
+  .step:disabled { cursor: default; }
+
+  /* status card */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 22px 20px; }
+  .phase { font-size: 13px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .phase i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .card[data-s="NAVIGATING"] .phase { color: var(--accent); }
+  .card[data-s="NAVIGATING"] .phase i { background: var(--accent); animation: pulse 1s infinite; }
+  .card[data-s="PRESENTING"] .phase { color: var(--ok); }
+  .card[data-s="PRESENTING"] .phase i { background: var(--ok); animation: pulse 1s infinite; }
+  .card[data-s="WAITING"] .phase { color: var(--warn); }
+  .card[data-s="WAITING"] .phase i { background: var(--warn); }
+  .card[data-s="ESTOP"] { border-color: var(--stop); }
+  .card[data-s="ESTOP"] .phase { color: var(--stop); }
+  .card[data-s="ESTOP"] .phase i { background: var(--stop); }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .where { font-size: 30px; font-weight: 750; margin: 10px 0 2px; line-height: 1.15; }
+  .sub { font-size: 16px; color: var(--muted); min-height: 1.3em; }
+  .detail { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  /* actions */
+  .actions { display: grid; gap: 10px; margin-top: 16px; }
+  button.big { font: inherit; font-size: 21px; font-weight: 700; border: 0; border-radius: 16px;
+    padding: 24px 16px; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+    transition: transform .05s, opacity .15s; }
+  button.big small { display: block; font-size: 13px; font-weight: 500; opacity: .85; margin-top: 4px; }
+  button.sec { font: inherit; font-size: 16px; font-weight: 600; border-radius: 14px; padding: 16px;
+    background: var(--card); color: var(--text); border: 1px solid var(--line); cursor: pointer; }
+  button:active:not(:disabled) { transform: scale(.98); }
+  button.big:disabled, button.sec:disabled { opacity: .4; cursor: not-allowed; }
+  .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .hidden { display: none !important; }
+
+  /* e-stop: always reachable, fixed to the bottom */
+  .estop-bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .estop { width: 100%; font: inherit; font-size: 19px; font-weight: 800; letter-spacing: 1px;
+    border: 0; border-radius: 14px; padding: 18px; color: var(--stop-ink); background: var(--stop);
+    cursor: pointer; }
+  .estop.reset { background: var(--card); color: var(--stop); border: 2px solid var(--stop); }
 </style>
 </head>
-<body>
+<body class="offline">
 <header>
-  <span class="dot" id="conn"></span>
-  <h1>Dex Guide Console</h1>
-  <span class="badge" id="backend">…</span>
+  <div class="wrap">
+    <h1>Dex Guide</h1>
+    <span class="badge" id="backend">…</span>
+    <span class="conn" id="conn"><i></i><span id="connText">Offline</span></span>
+    <button class="end" id="btnEnd" disabled>End tour</button>
+  </div>
 </header>
 
 <main>
-  <div class="state" id="state" data-s="IDLE">
-    <div class="label">Status</div>
-    <div class="name" id="stateName">Idle</div>
-    <div class="status" id="statusText">Connecting…</div>
-  </div>
+  <div class="wrap">
+    <div class="offline">Lost connection to the robot — reconnecting… Buttons are disabled.</div>
 
-  <div class="controls">
-    <button class="btn-primary" id="btnNext">▶ Start Tour</button>
-    <div class="row">
-      <button class="btn-ghost" id="btnStart">Restart</button>
-      <button class="btn-ghost" id="btnStop">Stop</button>
+    <div class="steps" id="steps"></div>
+
+    <div class="card" id="card" data-s="IDLE">
+      <div class="phase"><i></i><span id="phase">Ready</span></div>
+      <div class="where" id="where">Tour not started</div>
+      <div class="sub" id="sub"></div>
+      <div class="detail" id="detail"></div>
     </div>
-    <button class="btn-stop" id="btnEstop">■ E-STOP</button>
-  </div>
 
-  <h2>Stations</h2>
-  <div class="stations" id="stations"></div>
+    <div class="actions">
+      <button class="big" id="btnMain">Start tour</button>
+      <button class="sec hidden" id="btnSec">Pause</button>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
 </main>
 
-<footer>Tap a station to jump to it · Semi-auto: the robot waits after each stop until you press Next</footer>
+<div class="estop-bar">
+  <div class="wrap"><button class="estop" id="btnEstop">STOP ROBOT</button></div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const STATE_EN = { IDLE:"Idle", NAVIGATING:"Navigating", PRESENTING:"Presenting", WAITING:"Waiting for Next", ESTOP:"Emergency Stop" };
-
 let snap = null;
+let online = false;
+let target = null;        // index the operator picked on the stepper (null = the natural next stop)
+let inflight = false;     // blocks double taps while a command is being sent
 
 async function post(path) {
-  try { await fetch(path, { method: "POST" }); }
-  catch (e) { /* ignore while offline; WS will reconnect */ }
+  if (inflight || !online) return;
+  inflight = true; render();
+  try { await fetch(path, { method: "POST" }); } catch (e) { /* WS reconnect will resync */ }
+  inflight = false; target = null;
+  if (navigator.vibrate) navigator.vibrate(15);
+  render();
 }
 
-$("btnStart").onclick = () => post("/api/start");
-$("btnStop").onclick  = () => post("/api/stop");
-$("btnEstop").onclick = () => { if (snap && snap.state === "ESTOP") post("/api/clear"); else post("/api/estop"); };
-$("btnNext").onclick  = () => {
-  if (!snap) return;
-  if (snap.state === "ESTOP") return;
-  if (snap.state === "IDLE" || snap.current_index === null) post("/api/start");
-  else post("/api/next");
+const busy = (s) => s.state === "NAVIGATING" || s.state === "PRESENTING";
+
+// The stop the big button will drive to, or null when the tour is on its last stop.
+function naturalNext(s) {
+  if (s.current_index === null) return 0;
+  if (!s.arrived) return s.current_index;           // never reached it: retry, don't skip
+  return s.current_index + 1 < s.stations.length ? s.current_index + 1 : null;
+}
+const label = (st) => st.name + (st.subtitle ? " · " + st.subtitle : "");
+
+$("btnMain").onclick = () => {
+  const s = snap; if (!s || busy(s) || s.state === "ESTOP") return;
+  if (target !== null) return post("/api/goto/" + encodeURIComponent(s.stations[target].id));
+  if (s.current_index === null) return post("/api/start");
+  post("/api/next");                                // on the last stop this finishes the tour
+};
+$("btnSec").onclick = () => {
+  const s = snap; if (!s) return;
+  if (target !== null) { target = null; return render(); }   // cancel a picked jump
+  if (busy(s)) return post("/api/pause");
+};
+$("btnEnd").onclick = () => {
+  if (confirm("End the tour? The robot stops where it is.")) post("/api/stop");
+};
+$("btnEstop").onclick = () => {
+  if (snap && snap.state === "ESTOP") post("/api/clear");
+  else { online && fetch("/api/estop", { method: "POST" }).catch(() => {}); } // never gated by inflight
 };
 
-function render(s) {
-  snap = s;
-  // backend badge
+function render() {
+  const s = snap;
+  document.body.classList.toggle("offline", !online);
+  $("conn").className = "conn" + (online ? " live" : "");
+  $("connText").textContent = online ? "Connected" : "Offline";
+  if (!s) return;
+
   const b = $("backend");
   b.textContent = s.backend === "real" ? "ROBOT" : "SIM";
-  b.className = "badge " + (s.backend === "real" ? "real" : "sim");
+  b.className = "badge" + (s.backend === "real" ? "" : " sim");
 
-  // state banner
-  $("state").dataset.s = s.state;
-  const busy = (s.state === "NAVIGATING" || s.state === "PRESENTING");
-  $("stateName").innerHTML = (busy ? '<span class="spin"></span>' : "") + (STATE_EN[s.state] || s.state);
-  $("statusText").textContent = s.status_text || "";
+  const n = s.stations.length;
+  const isBusy = busy(s), estop = s.state === "ESTOP";
+  const cur = s.current_index;
+  const nxt = naturalNext(s);
+  const locked = !online || inflight || isBusy || estop;
+  if (target !== null && (locked || target === nxt)) target = null;
 
-  // primary button label + availability
-  const next = $("btnNext");
-  if (s.state === "ESTOP") { next.textContent = "Emergency Stop"; next.disabled = true; }
-  else if (busy)          { next.textContent = "Working…"; next.disabled = true; }
-  else if (s.state === "IDLE" || s.current_index === null) { next.textContent = "▶ Start Tour"; next.disabled = false; }
-  else                    { next.textContent = "▶ Next Station"; next.disabled = false; }
-  $("btnStart").disabled = busy;
-
-  // e-stop button becomes Reset while stopped
-  $("btnEstop").textContent = s.state === "ESTOP" ? "↻ Reset" : "■ E-STOP";
-
-  // station list
-  const box = $("stations");
-  box.innerHTML = "";
+  // stepper: done / here / upcoming; tap to pick a different stop (confirmed with the big button)
+  const steps = $("steps");
+  steps.style.setProperty("--n", n);
+  steps.innerHTML = "";
   s.stations.forEach((st, i) => {
-    const el = document.createElement("div");
-    el.className = "st" + (i === s.current_index ? " current" : "");
-    el.onclick = () => { if (!busy && s.state !== "ESTOP") post("/api/goto/" + encodeURIComponent(st.id)); };
-    el.innerHTML =
-      `<div class="num">${st.order}</div>
-       <div class="info">
-         <div class="t">${st.name}</div>
-         <div class="tags">
-           <span class="tag ${st.has_audio ? "on" : ""}">🔊 ${st.has_audio ? "Audio" : "No audio"}</span>
-           <span class="tag ${st.has_gesture ? "on" : ""}">👉 ${st.has_gesture ? "Gesture" : "No gesture"}</span>
-         </div>
-       </div>`;
-    box.appendChild(el);
+    const el = document.createElement("button");
+    const done = cur !== null && (i < cur || (i === cur && s.arrived && !isBusy));
+    el.className = "step" + (done ? " done" : "") + (i === cur ? " here" : "") + (i === target ? " target" : "");
+    el.innerHTML = `<b>${st.order}</b><span></span>`;
+    el.querySelector("span").textContent = st.subtitle || st.name;
+    el.disabled = locked;
+    el.onclick = () => { target = (i === nxt) ? null : i; render(); };
+    steps.appendChild(el);
   });
+
+  // status card
+  $("card").dataset.s = s.state;
+  const here = cur !== null ? s.stations[cur] : null;
+  let phase, where, sub;
+  switch (s.state) {
+    case "NAVIGATING": phase = "Driving";        where = "Going to " + here.name; sub = here.subtitle; break;
+    case "PRESENTING": phase = "Presenting";     where = here.name; sub = here.subtitle; break;
+    case "WAITING":
+      phase = s.arrived ? "Your turn" : "Stopped";
+      where = here.name; sub = here.subtitle; break;
+    case "ESTOP":      phase = "Robot stopped";  where = "Emergency stop"; sub = "Check the area is clear, then press Reset."; break;
+    default:           phase = "Ready";          where = cur === null ? "Tour not started" : here.name; sub = n + " stops"; break;
+  }
+  $("phase").textContent = phase;
+  $("where").textContent = where;
+  $("sub").textContent = sub || "";
+  $("detail").textContent = s.status_text || "";
+
+  // big button
+  const main = $("btnMain");
+  let text, small = "";
+  if (estop)            { text = "Robot stopped"; }
+  else if (isBusy)      { text = s.state === "NAVIGATING" ? "Driving…" : "Presenting…"; }
+  else if (target !== null) { text = "Go to " + s.stations[target].name; small = "Jump · " + (s.stations[target].subtitle || ""); }
+  else if (cur === null){ text = "Start tour"; small = "Go to " + label(s.stations[0]); }
+  else if (nxt === null){ text = "Finish tour"; }
+  else if (!s.arrived)  { text = "Retry " + s.stations[nxt].name; small = "Robot hasn't reached this stop yet"; }
+  else                  { text = "Next: " + s.stations[nxt].name; small = s.stations[nxt].subtitle || ""; }
+  main.innerHTML = ""; main.append(text);
+  if (small) { const sm = document.createElement("small"); sm.textContent = small; main.append(sm); }
+  main.disabled = locked || n === 0;
+
+  // secondary button: Pause while busy · Cancel a picked jump
+  const sec = $("btnSec");
+  let secText = null;
+  if (target !== null) secText = "Cancel";
+  else if (isBusy) secText = s.state === "NAVIGATING" ? "Pause" : "Stop talking";
+  sec.classList.toggle("hidden", secText === null);
+  if (secText) sec.textContent = secText;
+  sec.disabled = !online || inflight;
+
+  $("btnEnd").disabled = cur === null || estop || !online;
+
+  const es = $("btnEstop");
+  es.textContent = estop ? "↻ Reset" : "STOP ROBOT";
+  es.className = "estop" + (estop ? " reset" : "");
+  es.disabled = !online;
+
+  $("hint").textContent = isBusy || estop ? "" :
+    (target !== null ? "Tap Go to confirm the jump" : "Tap a number above to jump to a different stop");
 }
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen = () => { $("conn").className = "dot live"; ws.send("hi"); };
-  ws.onmessage = (e) => render(JSON.parse(e.data));
-  ws.onclose = () => { $("conn").className = "dot"; setTimeout(connect, 1200); };
+  ws.onopen = () => { online = true; render(); };
+  ws.onmessage = (e) => { snap = JSON.parse(e.data); render(); };
+  ws.onclose = () => { online = false; render(); setTimeout(connect, 1200); };
   ws.onerror = () => ws.close();
 }
 connect();
+
+// keep the tablet/phone screen awake during a tour
+async function wake() { try { await navigator.wakeLock?.request("screen"); } catch (e) {} }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
+wake();
 </script>
 </body>
 </html>

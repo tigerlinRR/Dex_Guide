@@ -1,6 +1,6 @@
 """FastAPI backend — the operator's web control console + live state push.
 
-REST:  POST /api/start /next /stop /estop /clear, POST /api/goto/{id}.
+REST:  POST /api/start /next /pause /stop /estop /clear, POST /api/goto/{id}.
 Live:  WebSocket /ws — the engine broadcasts a snapshot on every state change, and the
        page refreshes from it.
 Static: GET / returns guide/web/index.html (responsive, works on phone and desktop).
@@ -25,10 +25,12 @@ WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 def _make_hardware(backend: str):
     if backend == "real":
         from guide.hardware.real import RealArm, RealAudio, RealChassis, RealHand
+        from guide.hardware.stop_runner import RealStopRunner
         host = os.environ.get("GUIDE_CHASSIS_HOST", "192.168.12.131")
-        return RealChassis(host), RealArm(), RealHand(), RealAudio()
+        return RealChassis(host), RealArm(), RealHand(), RealAudio(), RealStopRunner()
     from guide.hardware.sim import SimArm, SimAudio, SimChassis, SimHand
-    return SimChassis(), SimArm(), SimHand(), SimAudio()
+    from guide.hardware.stop_runner import SimStopRunner
+    return SimChassis(), SimArm(), SimHand(), SimAudio(), SimStopRunner()
 
 
 class Hub:
@@ -53,9 +55,13 @@ def create_app() -> FastAPI:
     hub = Hub()
     backend = os.environ.get("GUIDE_BACKEND", "sim")
     stations = load_stations(os.environ.get("GUIDE_STATIONS", DEFAULT_CONFIG))
-    chassis, arm, hand, audio = _make_hardware(backend)
-    engine = TourEngine(stations, chassis, arm, hand, audio,
-                        on_change=hub.broadcast)
+    chassis, arm, hand, audio, stop_runner = _make_hardware(backend)
+
+    async def on_change(snapshot: dict) -> None:
+        await hub.broadcast({**snapshot, "backend": backend})
+
+    engine = TourEngine(stations, chassis, arm, hand, audio, on_change=on_change,
+                        stop_runner=stop_runner)
     app.state.engine = engine
     app.state.backend = backend
 
@@ -75,6 +81,11 @@ def create_app() -> FastAPI:
     @app.post("/api/next")
     async def nxt():
         await engine.next()
+        return {"ok": True}
+
+    @app.post("/api/pause")
+    async def pause():
+        await engine.pause()
         return {"ok": True}
 
     @app.post("/api/stop")
