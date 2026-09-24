@@ -2,6 +2,28 @@
 
 Dex_Guide progress log (newest first).
 
+## 2026-09-24 — MILESTONE: tablet-driven tours run end to end on the real robot
+
+**What works:** a salesperson drives a full 4-stop tour from a tablet — Go to Guide1 →
+Start → Guide2/3/4 present on arrival → Return to charger (docks). Every stop is reached
+within 1–3 cm, each presents with torso lift + gestures + narration, and the robot docks.
+
+**How it was achieved (two terminals, one contract):**
+- *Motion terminal* (`robot/`, runtime `~/dex_guide`): Quest teleop recordings → trimmed,
+  smoothed, bridged per-stop motions replayed through the teleop stack; narration wavs cued
+  to gesture segments; travel pose between stops; audio self-heal after reboot; torso lift
+  (1000 mm presenting / 800 mm driving, soft landing); silent sink wake. Contract:
+  `run_stop.py GuideN` blocks, exit 0.
+- *Console terminal* (`guide/`, `deploy/`, `configs/`): tablet UI + state machine with the
+  user's flow; runs on the Jetson as a service; chassis via robot-api (moveTo with heading,
+  goHome docking); stop poses read live from the robot's map (by id, then name); the tablet
+  reaches it over the robot's own hotspot (company Wi-Fi blocks external devices);
+  persistent timestamped tour log.
+
+**Open:** lift not stopped/lowered when a stop is interrupted (proposal in CLAUDE.md, not
+approved yet); heading unit unconfirmed; path-planning mode; depth-camera calibration;
+Tailscale key expiry.
+
 ## 2026-09-24 — Live map poses, heading, first full tablet runs
 
 - Full tours run from the tablet: every stop reached (1–3 cm), all four presented, docked

@@ -1,61 +1,53 @@
 # Dex Office Tour Guide
 
-Turns the Richtech DEX robot into an office tour guide: the base navigates to preset
-waypoints; at each stop it plays a narration clip through the built-in speaker and the
-arm makes a pointing gesture; then it stops and waits for a salesperson/operator to
-press "Next" before moving on.
+Turns the Richtech DEX robot into a semi-automatic office tour guide. A salesperson walks
+with the visitor and drives the tour from a tablet: the robot drives to each stop, raises
+its torso, plays a narration through its speaker while the arms point at what it is
+describing, then waits for the salesperson before moving on. After the last stop it
+returns to its charger.
 
-**Semi-automatic**: the robot always waits after a stop — "Next" is human-triggered, so
-it fits the pace of a live conversation with the visitor.
+**Status (2026-09-24): working end to end on the real robot.** Open issues: `CLAUDE.md`.
 
-## What runs today (SIM, no robot needed)
+## Operating a tour
 
-The full orchestration + web console runs on a dev machine. Hardware is simulated (logs
-actions + simulates timing), touching no real robot. The real adapters
-(`guide/hardware/real.py`) are marked with TODOs and wire into
-[Dex_Elevator](../Dex_Elevator)'s control layer on-site.
+1. Tablet → Wi-Fi **`dex-teleop`** (the robot's own hotspot) → open **`http://10.42.0.1:8600`**.
+2. **Go to Guide1** — the robot drives there and waits.
+3. **Start Guide1** — it presents Guide1.
+4. **Next: Guide2 / Guide3 / Guide4** — it drives and presents on arrival.
+5. **Return to charger** — it drives back and docks.
+
+Pause / Stop talking while it is busy, **STOP ROBOT** at any time (a software stop — the
+physical e-stop is the real safety device). Tap a stop number and confirm to jump to it.
+Stop positions and headings are read from the robot's map, so re-marking a point in
+AutoXing takes effect on the next drive (keep the names Guide1–Guide4).
+
+## How it is built
+
+```
+tablet ──Wi-Fi hotspot──▶ console on the Jetson (guide/, systemd dex-guide, :8600)
+                             ├─ chassis: robot-api :3000 → AutoXing (moveTo / goHome / poiList)
+                             └─ each stop: ~/dex_guide/run_stop.py GuideN  (robot/)
+                                   lift up → gestures (teleop stack replay) + narration → lift down
+```
+
+```
+guide/             console: engine.py (tour state machine), server.py (FastAPI + WebSocket),
+                   web/index.html (tablet UI), hardware/ (sim + real adapters, stop_runner)
+configs/           stations.generated.yaml = the real tour (stops, charger, run_stop names)
+robot/             per-stop gesture + narration playback (snapshot of ~/dex_guide on the Jetson)
+audio/             narration scripts + wav files
+deploy/            systemd unit, install.sh (on the Jetson), push.sh (from the Mac)
+```
+
+## Develop / deploy
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-./run.sh                       # -> http://localhost:8600
+GUIDE_STATIONS=configs/stations.generated.yaml ./run.sh    # sim → http://localhost:8600
+
+JETSON=rr@192.168.12.131 ./deploy/push.sh                 # deploy (Mac wired to the robot)
 ```
 
-On a phone on the same Wi-Fi, open `http://<this-host-ip>:8600` to drive it.
-
-## Layout
-
-```
-guide/
-  hardware/
-    base.py     four hardware interfaces: Chassis / Arm / Hand / Audio
-    sim.py      sim implementations (run the flow on a dev machine)
-    real.py     real-robot adapters (wire into Dex_Elevator; includes wiring notes)
-  config.py     loads configs/stations.yaml
-  engine.py     tour state machine: navigate -> present (audio + gesture) -> wait -> next
-  server.py     FastAPI: REST commands + WebSocket live state + web page
-  web/index.html responsive console (phone/desktop)
-configs/stations.yaml           waypoint definitions (example data, replace on-site)
-configs/stations.generated.yaml waypoints synced from the robot
-configs/arm_home.yaml           recorded arm standby pose (7-DOF)
-tools/import_pois.py            pull robot POIs into a stations config
-audio/                          narration files (recorded/generated, placed here)
-```
-
-## What a station is
-
-See `configs/stations.yaml`. Each station = chassis pose `chassis_pose{x,y,ori}` +
-(optional) narration audio + (optional) arm gesture (`arm_joints_deg` recorded via
-drag-teach + a hand-pose name). Data model follows Dex_Elevator/configs/stations.yaml.
-
-## Switching to the real robot (on-site)
-
-1. Move the code onto the robot's Jetson (system python3, not conda) and install
-   Dex_Elevator's SDK.
-2. Wire `guide/hardware/real.py` (chassis IP, arm IPs left .132 / right .133, audio).
-3. `GUIDE_BACKEND=real ./run.sh`.
-
-Audio plays through the robot's WONDOM USB speaker (a PipeWire sink on the Jetson).
-
-See `CLAUDE.md` and `PROGRESS.md` for the full hardware/network notes and status.
+Tour log on the robot: `~/Dex_Guide/logs/guide.log`. See `CLAUDE.md` (facts and gotchas)
+and `PROGRESS.md` (history).
