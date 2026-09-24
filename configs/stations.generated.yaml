@@ -1,4 +1,5 @@
-# Dex guide waypoints — synced from the robot map, full-precision real coords.
+# Dex guide waypoints — re-synced from the robot map 2026-09-23. At runtime the console
+# re-reads each stop's pose from the map by `id` (POI id), so these are only a fallback.
 # Guide5 removed per request (boss: skip that stop). Tour is now Guide1-Guide4.
 # audio: file per stop (AI TTS). Use the .wav under audio/wav/ — paplay on the Jetson may not decode mp3.
 # run_stop: this stop's name in ~/dex_guide/stations.yaml on the Jetson. When set, the
@@ -19,7 +20,7 @@ stations:
     name: "Guide1"
     subtitle: "Welcome · Reception"
     poi_name: "Guide1"
-    chassis_pose: {x: 28.0975, y: -1.5600, ori: 5.1831}   # yaw=296.97 deg
+    chassis_pose: {x: 27.4405, y: -2.6158, ori: 4.1993}   # yaw=240.60 deg
     audio: audio/wav/Guide1.wav
     run_stop: Guide1
     # gesture:             # TODO: record via VR
@@ -30,7 +31,7 @@ stations:
     name: "Guide2"
     subtitle: "Demo area"
     poi_name: "Guide2"
-    chassis_pose: {x: 24.7250, y: -9.6175, ori: 5.2431}   # yaw=300.41 deg
+    chassis_pose: {x: 24.7088, y: -8.8381, ori: 5.2431}   # yaw=300.41 deg
     audio: audio/wav/Guide2.wav
     run_stop: Guide2
     # gesture:             # TODO: record via VR
@@ -41,7 +42,7 @@ stations:
     name: "Guide3"
     subtitle: "Sales & Marketing · R&D"
     poi_name: "Guide3"
-    chassis_pose: {x: 9.1725, y: -25.7350, ori: 4.3801}   # yaw=250.96 deg
+    chassis_pose: {x: 9.6633, y: -25.5764, ori: 4.3801}   # yaw=250.96 deg
     audio: audio/wav/Guide3.wav
     run_stop: Guide3
     # gesture:             # TODO: record via VR
@@ -52,7 +53,7 @@ stations:
     name: "Guide4"
     subtitle: "Engineering & Technicians"
     poi_name: "Guide4"
-    chassis_pose: {x: 3.9150, y: -2.9700, ori: 2.9199}   # yaw=167.30 deg
+    chassis_pose: {x: 3.9370, y: -3.4238, ori: 3.7149}   # yaw=212.85 deg
     audio: audio/wav/Guide4.wav
     run_stop: Guide4
     # gesture:             # TODO: record via VR

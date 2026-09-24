@@ -66,6 +66,10 @@ Wired (Mac on the same switch): `192.168.12.x`; the robot's internal net is also
 - **After Guide4, Next = "Return to charger"**: robot-api `goHome` with the `home:` block in
   stations.generated.yaml (POI "Charging pile - Dex Guide", values verbatim, yaw in degrees);
   done when `isCharging` turns true. Unverified on the real robot.
+- **Stop poses come from the robot's map at drive time** (POI lookup by `id` via
+  `/api/poiList`); the coords in stations.generated.yaml are only a fallback. So re-marking a
+  point in AutoXing takes effect on the next drive — no re-sync. (Before 2026-09-23 the config
+  copy was used and went stale: the first live run drove precisely to the OLD points.)
 - **Tour log**: `~/Dex_Guide/logs/guide.log` on the Jetson (systemd appends stdout there —
   the journal is volatile). Timestamped `[tour]` state changes, `[chassis]` moveTo/arrival/
   stall details, and run_stop.py's own output. **Jetson clock is CST (UTC+8).**

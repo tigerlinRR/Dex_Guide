@@ -63,6 +63,7 @@ class Home:
     x: float
     y: float
     yaw_deg: float                         # degrees, as the robot's POI list reports it
+    poi_id: str | None = None              # re-read from the map at runtime when set
 
 
 def load_home(path: str) -> Home | None:
@@ -72,7 +73,7 @@ def load_home(path: str) -> Home | None:
     if not h:
         return None
     return Home(name=h.get("name", "Charger"), x=float(h["x"]), y=float(h["y"]),
-                yaw_deg=float(h["yaw_deg"]))
+                yaw_deg=float(h["yaw_deg"]), poi_id=h.get("poi_id"))
 
 
 def load_stations(path: str) -> list[Station]:

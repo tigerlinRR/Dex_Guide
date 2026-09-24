@@ -19,6 +19,7 @@ via on_change.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from enum import Enum
 from typing import Awaitable, Callable
@@ -218,9 +219,8 @@ class TourEngine:
             self.presented = False
             await self._tuck_if_needed()
             await self._emit(f"Going to {station.name}")
-            p = station.chassis_pose
-            ok = await self.chassis.navigate_to(
-                float(p["x"]), float(p["y"]), float(p["ori"]))
+            x, y, ori = await self._station_pose(station)
+            ok = await self.chassis.navigate_to(x, y, ori)
             if not ok:
                 self.state = State.WAITING
                 await self._emit(f"Could not reach {station.name} (cancelled or blocked)")
@@ -239,6 +239,26 @@ class TourEngine:
             self.state = State.WAITING
             await self._emit(f"{station.name} error: {exc}")
 
+    async def _station_pose(self, station: Station) -> tuple[float, float, float]:
+        """The stop's pose as the robot's map has it NOW (by POI id), falling back to the
+        config copy — so points re-marked in AutoXing take effect without a re-sync."""
+        p = station.chassis_pose
+        pose = (float(p["x"]), float(p["y"]), float(p["ori"]))
+        try:
+            live = await self.chassis.lookup_poi(station.id)
+        except Exception as exc:
+            live = None
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [tour] POI lookup failed ({exc}); "
+                  f"using config pose for {station.name}", flush=True)
+        if live:
+            x, y, yaw_deg = live
+            if math.hypot(x - pose[0], y - pose[1]) > 0.05:
+                print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [tour] {station.name}: map POI "
+                      f"({x:.3f},{y:.3f}) differs from config ({pose[0]:.3f},{pose[1]:.3f}) "
+                      f"— using the map", flush=True)
+            pose = (x, y, math.radians(yaw_deg))
+        return pose
+
     async def _tuck_if_needed(self) -> None:
         if self._arms_out and self.stop_runner:
             await self._emit("Tucking arms before driving")
@@ -256,7 +276,13 @@ class TourEngine:
             self.state = State.NAVIGATING
             await self._tuck_if_needed()
             await self._emit(f"Returning to {h.name}")
-            ok = await self.chassis.go_home(h.x, h.y, h.yaw_deg)
+            x, y, yaw_deg = h.x, h.y, h.yaw_deg
+            if h.poi_id:
+                try:
+                    x, y, yaw_deg = await self.chassis.lookup_poi(h.poi_id) or (x, y, yaw_deg)
+                except Exception:
+                    pass        # map unreachable: fall back to the config copy
+            ok = await self.chassis.go_home(x, y, yaw_deg)
             if not ok:
                 self.state = State.WAITING
                 await self._emit(f"Could not dock at {h.name} (cancelled or blocked)")

@@ -71,6 +71,13 @@ class RealChassis(Chassis):
         d = await asyncio.to_thread(_http, "GET", f"{self.base}/api/poiList")
         return d.get("poiList", {}).get("list", [])
 
+    async def lookup_poi(self, poi_id: str) -> tuple[float, float, float] | None:
+        for p in await self.list_pois():
+            if p.get("id") == poi_id and p.get("coordinates"):
+                c = p["coordinates"]
+                return float(c[0]), float(c[1]), float(p.get("yaw", 0.0))
+        return None
+
     async def health(self) -> dict:
         return await asyncio.to_thread(_http, "GET", f"{self.base}/api/health")
 
