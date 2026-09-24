@@ -19,8 +19,8 @@ CFG = os.path.join(HERE, 'stations.yaml')
 sys.path.insert(0, HERE)
 
 LIFT_ENABLE = os.environ.get('LIFT_ENABLE', '1') == '1'
-LIFT_DRIVE_MM = float(os.environ.get('LIFT_DRIVE_MM', '1050'))      # driving / resting height
-LIFT_PRESENT_MM = float(os.environ.get('LIFT_PRESENT_MM', '1125'))  # raised for the presentation
+LIFT_DRIVE_MM = float(os.environ.get('LIFT_DRIVE_MM', '800'))      # driving / resting height
+LIFT_PRESENT_MM = float(os.environ.get('LIFT_PRESENT_MM', '1000'))  # raised for the presentation
 
 def _raise():
     if not LIFT_ENABLE:
