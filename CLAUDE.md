@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## ⚠️ 语言规则（默认，必须遵守）
+
+**在 Claude Code 里和用户的所有对话一律用中文**——包括最终回复、工具调用之间的进度说明、
+提问和总结，从第一句到最后一句都不要切换成英文，哪怕刚写完英文代码或读了英文日志。
+只有代码、命令、文件路径、日志原文和专有名词保留原文。
+（代码、代码注释、提交信息、本文件其余部分保持仓库原有的英文风格。）
+
 Notes for a future Claude working in this repo. Style follows Dex_Elevator: record
 only the non-obvious, easy-to-trip-over facts.
 
