@@ -2,6 +2,20 @@
 
 Dex_Guide progress log (newest first).
 
+## 2026-09-24 — Live map poses, heading, first full tablet runs
+
+- Full tours run from the tablet: every stop reached (1–3 cm), all four presented, docked
+  back on the charger each time.
+- Stop poses now come from the robot's map at drive time (by POI id, then by name — Guide1/4
+  were re-created with new ids). Config coords are only a fallback.
+- Map heading edits had no effect because only x,y was sent; `moveTo` now sends the POI heading
+  (degrees assumed) and waits for the in-place turn. User reports Guide4 now faces correctly,
+  but the log shows a 53deg gap between target and chassis-reported heading — unconfirmed,
+  see CLAUDE.md.
+- Path planning: `moveTo` has no track/route mode; `/api/startTask` does (runMode/routeMode),
+  meanings unverified. Parked by the user.
+- Jump straight to one stop (tap its number, confirm) works for testing single stops.
+
 ## 2026-09-23 — Operator console wired to the robot (tablet control)
 
 ### Flow (as the user defined it)

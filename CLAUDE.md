@@ -94,6 +94,16 @@ Wired (Mac on the same switch): `192.168.12.x`; the robot's internal net is also
   Arrival waits for `isTasking` to clear (the base turns in place at zero speed) and logs
   `heading actual/target/diff` — check that line after the first run to confirm the unit.
   `/api/state` reports `yaw` in radians.
+  **Still unconfirmed (2026-09-24):** the first run with yaw logged actual 151.8deg vs target
+  205.1deg (diff -53) although the user saw Guide4 facing correctly — that run came from the
+  charger, not Guide3, so it may be the approach direction. The SDK forwards `{x,y,yaw}`
+  verbatim to the chassis (no conversion). Decisive test: reach Guide4 from two directions
+  and compare. `/api/state` yaw is coarse (1 decimal of radians).
+- **Path planning**: `moveTo` is a bare direct move — no route/track options. Route options
+  live in the SDK's task API (`runMode`, `routeMode`, `speed`, … default 1), reachable via
+  robot-api `/api/startTask`, which forwards the body verbatim (no robot-api change needed).
+  The meaning of each runMode/routeMode value is NOT in the SDK — check AutoXing docs first.
+  User parked this on 2026-09-24 ("就这样吧").
 
 ## The robot-api wrapper (/opt/robot-api, PM2 name "robot-api", :3000)
 
