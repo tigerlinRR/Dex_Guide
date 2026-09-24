@@ -11,12 +11,12 @@ position feedback (`get_lift_state` -> height mm) and a velocity command
 
 Safe range clamped to [SAFE_MIN, SAFE_MAX]. Speed capped low for a stationary torso.
 """
-import socket, json, sys, time
+import socket, json, sys, time, os
 
 IP = '192.168.12.133'
-SAFE_MIN = int(__import__('os').environ.get('LIFT_MIN_MM', '850'))
-SAFE_MAX = int(__import__('os').environ.get('LIFT_MAX_MM', '1160'))
-SPEED = int(__import__('os').environ.get('LIFT_SPEED', '30'))   # abs speed while moving
+SAFE_MIN = int(os.environ.get('LIFT_MIN_MM', '400'))
+SAFE_MAX = int(os.environ.get('LIFT_MAX_MM', '1160'))
+SPEED = int(os.environ.get('LIFT_SPEED', '24'))   # abs speed while moving
 
 def cmd(c):
     s = socket.create_connection((IP, 8080), timeout=3); s.settimeout(3)
@@ -34,7 +34,10 @@ def height():
 def set_speed(v):
     return cmd({'command': 'set_lift_speed', 'speed': int(v)})
 
-def move_to(target, tol=4, timeout=15):
+RAMP = int(os.environ.get('LIFT_RAMP_MM', '120'))   # decelerate within this many mm of target
+MINSP = 8                                            # crawl speed near the target
+
+def move_to(target, tol=4, timeout=20):
     target = max(SAFE_MIN, min(SAFE_MAX, int(target)))
     t0 = time.time(); h = height(); stuck = 0; last = h
     print(f"  lift {h} -> {target} mm", flush=True)
@@ -49,11 +52,19 @@ def move_to(target, tol=4, timeout=15):
             last = h
             if stuck >= 12:   # ~1s of no progress
                 print("  lift not moving (limit reached) - stop", flush=True); break
-            set_speed(SPEED if d > 0 else -SPEED)
+            # soft landing: ramp speed down within RAMP mm of the target so the
+            # platform (and the cantilevered arms) don't get jerked at the stop
+            mag = SPEED if abs(d) >= RAMP else max(MINSP, int(SPEED * abs(d) / RAMP))
+            set_speed(mag if d > 0 else -mag)
             time.sleep(0.08)
     finally:
+        # ease off in two steps instead of slamming to 0
+        try:
+            set_speed(MINSP if (target - height()) > 0 else -MINSP); time.sleep(0.06)
+        except Exception:
+            pass
         set_speed(0)
-    time.sleep(0.2); h = height()
+    time.sleep(0.3); h = height()
     print(f"  lift settled at {h} mm", flush=True)
     return h
 
