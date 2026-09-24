@@ -1,4 +1,4 @@
-# Dex guide waypoints — re-synced from the robot map 2026-09-23. At runtime the console
+# Dex guide waypoints — re-synced from the robot map 2026-09-24. At runtime the console
 # re-reads each stop's pose from the map by `id` (POI id), so these are only a fallback.
 # Guide5 removed per request (boss: skip that stop). Tour is now Guide1-Guide4.
 # audio: file per stop (AI TTS). Use the .wav under audio/wav/ — paplay on the Jetson may not decode mp3.
@@ -53,7 +53,7 @@ stations:
     name: "Guide4"
     subtitle: "Engineering & Technicians"
     poi_name: "Guide4"
-    chassis_pose: {x: 3.9370, y: -3.4238, ori: 3.7149}   # yaw=212.85 deg
+    chassis_pose: {x: 3.7844, y: -3.7500, ori: 3.7149}   # yaw=212.85 deg
     audio: audio/wav/Guide4.wav
     run_stop: Guide4
     # gesture:             # TODO: record via VR
