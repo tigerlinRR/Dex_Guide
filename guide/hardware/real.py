@@ -71,12 +71,21 @@ class RealChassis(Chassis):
         d = await asyncio.to_thread(_http, "GET", f"{self.base}/api/poiList")
         return d.get("poiList", {}).get("list", [])
 
-    async def lookup_poi(self, poi_id: str) -> tuple[float, float, float] | None:
-        for p in await self.list_pois():
-            if p.get("id") == poi_id and p.get("coordinates"):
-                c = p["coordinates"]
-                return float(c[0]), float(c[1]), float(p.get("yaw", 0.0))
-        return None
+    async def lookup_poi(self, poi_id: str, name: str | None = None
+                         ) -> tuple[float, float, float] | None:
+        pois = [p for p in await self.list_pois() if p.get("coordinates")]
+        hits = [p for p in pois if p.get("id") == poi_id]
+        if not hits and name:
+            hits = [p for p in pois if p.get("name") == name]
+            if len(hits) == 1:
+                _log(f"POI id {poi_id} gone; using {name!r} by name (new id {hits[0]['id']})")
+            elif len(hits) > 1:
+                _log(f"POI {name!r} is ambiguous ({len(hits)} points share the name)")
+                return None
+        if not hits:
+            return None
+        c = hits[0]["coordinates"]
+        return float(c[0]), float(c[1]), float(hits[0].get("yaw", 0.0))
 
     async def health(self) -> dict:
         return await asyncio.to_thread(_http, "GET", f"{self.base}/api/health")

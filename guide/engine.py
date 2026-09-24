@@ -245,11 +245,14 @@ class TourEngine:
         p = station.chassis_pose
         pose = (float(p["x"]), float(p["y"]), float(p["ori"]))
         try:
-            live = await self.chassis.lookup_poi(station.id)
+            live = await self.chassis.lookup_poi(station.id, station.poi_name or station.name)
         except Exception as exc:
             live = None
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [tour] POI lookup failed ({exc}); "
                   f"using config pose for {station.name}", flush=True)
+        if not live:
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [tour] WARNING {station.name} not found "
+                  f"on the map (id {station.id}) — driving to the config pose", flush=True)
         if live:
             x, y, yaw_deg = live
             if math.hypot(x - pose[0], y - pose[1]) > 0.05:
@@ -279,7 +282,8 @@ class TourEngine:
             x, y, yaw_deg = h.x, h.y, h.yaw_deg
             if h.poi_id:
                 try:
-                    x, y, yaw_deg = await self.chassis.lookup_poi(h.poi_id) or (x, y, yaw_deg)
+                    x, y, yaw_deg = (await self.chassis.lookup_poi(h.poi_id, h.name)
+                                     or (x, y, yaw_deg))
                 except Exception:
                     pass        # map unreachable: fall back to the config copy
             ok = await self.chassis.go_home(x, y, yaw_deg)

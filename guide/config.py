@@ -28,6 +28,7 @@ class Station:
     name: str                              # display name, e.g. "Research Office"
     chassis_pose: dict                     # {x, y, ori}, SLAM map coords
     subtitle: str = ""                     # one-line hint for the operator, e.g. "Demo area"
+    poi_name: str | None = None            # POI name on the robot's map (lookup fallback)
     audio: str | None = None               # narration file path (relative to project root)
     gesture: Gesture | None = None
     dwell: str = "manual"                  # manual = stop and wait for the operator to press Next
@@ -49,6 +50,7 @@ def _parse_station(raw: dict) -> Station:
         order=int(raw.get("order", 0)),
         name=raw.get("name", raw["id"]),
         subtitle=raw.get("subtitle", ""),
+        poi_name=raw.get("poi_name"),
         chassis_pose=raw["chassis_pose"],
         audio=raw.get("audio"),
         gesture=gesture,

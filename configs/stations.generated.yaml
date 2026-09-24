@@ -15,12 +15,12 @@ home:
   yaw_deg: 162.72
 
 stations:
-  - id: "6ab1c0af4f38299be615688e"
+  - id: "6ab5632d1a0fe6d1f476deaf"
     order: 1
     name: "Guide1"
     subtitle: "Welcome · Reception"
     poi_name: "Guide1"
-    chassis_pose: {x: 27.4405, y: -2.6158, ori: 4.1993}   # yaw=240.60 deg
+    chassis_pose: {x: 27.4500, y: -1.3975, ori: 4.8833}   # yaw=279.79 deg
     audio: audio/wav/Guide1.wav
     run_stop: Guide1
     # gesture:             # TODO: record via VR
@@ -48,12 +48,12 @@ stations:
     # gesture:             # TODO: record via VR
     dwell: manual
 
-  - id: "6ab1c1847055d9748b11f09b"
+  - id: "6ab56387e35f2ddc2458d616"
     order: 4
     name: "Guide4"
     subtitle: "Engineering & Technicians"
     poi_name: "Guide4"
-    chassis_pose: {x: 3.6092, y: -3.8283, ori: 3.5446}   # yaw=203.09 deg
+    chassis_pose: {x: 3.3925, y: -3.9450, ori: 3.5800}   # yaw=205.12 deg
     audio: audio/wav/Guide4.wav
     run_stop: Guide4
     # gesture:             # TODO: record via VR

@@ -29,9 +29,11 @@ class Chassis(abc.ABC):
     async def cancel(self) -> None:
         """Immediately cancel the current move (e-stop)."""
 
-    async def lookup_poi(self, poi_id: str) -> tuple[float, float, float] | None:
-        """Current (x, y, yaw_deg) of a map POI, or None if unknown — lets the tour follow
-        points re-marked on the robot's map without re-syncing the config."""
+    async def lookup_poi(self, poi_id: str, name: str | None = None
+                         ) -> tuple[float, float, float] | None:
+        """Current (x, y, yaw_deg) of a map POI — by id, else by a unique name (a point
+        deleted and re-created in AutoXing gets a new id) — or None if not found. Lets the
+        tour follow points re-marked on the robot's map without re-syncing the config."""
         return None
 
     async def go_home(self, x: float, y: float, yaw_deg: float) -> bool:
