@@ -55,3 +55,17 @@ Cue times were set from silence-gap analysis of each narration wav — tune by e
 
 Base navigation between stops. A live tour still needs `robot-api :3000` `moveTo` to drive
 Guide1 → Guide2 → … between plays (arrive → `run_stop` → operator Next → drive).
+
+## Torso lift (added 2026-09-24)
+
+`lift.py` drives the torso lift (right-arm controller .133, joint 7, mm feedback via
+`get_lift_state`, velocity via `set_lift_speed`; +up/-down; hardware ceiling ~1130mm).
+`run_stop.py` raises to `LIFT_PRESENT_MM` (1125, near the ceiling) for the presentation and
+lowers to `LIFT_DRIVE_MM` (1050) when it ends — for all 4 stops, driven from the console.
+`LIFT_ENABLE=0` disables it; any lift error is swallowed so it never breaks a presentation.
+Lift only moves while the arms are idle (before/after the gesture), so there is no
+controller contention.
+
+```bash
+python lift.py read | to <mm> | by <delta_mm>    # manual control (mm)
+```
