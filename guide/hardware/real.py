@@ -3,7 +3,7 @@
 **Chassis (RealChassis)**: wired to the AutoXing wrapper API on the Jetson
 (http://<host>:3000). This is the only interface directly reachable from a Mac, so
 navigation/cancel/state reads all go through it. Verified interface shapes:
-  POST /api/moveTo    {x, y}         navigate to map coords (metres); heading field TBD on first on-site move
+  POST /api/moveTo    {x, y, yaw}    navigate to map coords (metres); yaw unit assumed degrees (GUIDE_MOVETO_YAW)
   POST /api/motionFor {direction}    Forward/Back/TurnLeft/TurnRight/Cancel (jog / cancel)
   GET  /api/state     {x,y,yaw,speed,isTasking,...}   used to detect arrival
   GET  /api/poiList   registered POIs (with coordinates)
@@ -55,8 +55,10 @@ class RealChassis(Chassis):
 
     def __init__(self, host: str = "192.168.12.131", port: int = 3000,
                  arrive_tol_m: float = 0.25, poll_s: float = 0.5,
-                 stall_s: float = 20.0, hard_cap_s: float = 120.0):
+                 stall_s: float = 20.0, hard_cap_s: float = 120.0, settle_s: float = 15.0):
         self.base = f"http://{host}:{port}"
+        self.settle_s = settle_s
+        self.yaw_unit = os.environ.get("GUIDE_MOVETO_YAW", "deg")
         self.arrive_tol_m = arrive_tol_m
         self.poll_s = poll_s
         self.stall_s = stall_s
@@ -92,29 +94,52 @@ class RealChassis(Chassis):
 
     # -- navigation (MOVES the robot — trigger only on-site, once safe) -----
     async def navigate_to(self, x: float, y: float, ori: float) -> bool:
-        # NOTE: heading field name/units TBD on first on-site move; send only the
-        # verified required x,y for now.
-        await asyncio.to_thread(_http, "POST", f"{self.base}/api/moveTo",
-                                {"x": float(x), "y": float(y)})
-        _log(f"moveTo x={x:.3f} y={y:.3f} sent")
+        # Heading: robot-api forwards `yaw` to the SDK's moveTo. Its unit is assumed DEGREES
+        # (the same SDK's goHome takes POI yaw in degrees and docks fine); GUIDE_MOVETO_YAW
+        # = deg | rad | off switches it. Each arrival logs target vs actual heading so a
+        # wrong unit shows up immediately in the tour log.
+        body = {"x": float(x), "y": float(y)}
+        target_deg = math.degrees(ori) % 360
+        if self.yaw_unit == "deg":
+            body["yaw"] = round(target_deg, 2)
+        elif self.yaw_unit == "rad":
+            body["yaw"] = round(ori, 4)
+        await asyncio.to_thread(_http, "POST", f"{self.base}/api/moveTo", body)
+        _log(f"moveTo x={x:.3f} y={y:.3f} yaw={body.get('yaw', '-')}({self.yaw_unit}) sent")
         loop = asyncio.get_event_loop()
         t0 = last_move = loop.time()
         last_pos = None
+        in_place_since = None
         while True:
             await asyncio.sleep(self.poll_s)
             st = await self.get_state()
             sx, sy = st.get("x"), st.get("y")
             speed = st.get("speed", 0)
+            now = loop.time()
             if sx is not None and sy is not None:
                 dist = math.hypot(sx - x, sy - y)
                 if dist < self.arrive_tol_m and abs(speed) < 1e-3:
-                    _log(f"arrived at ({sx:.3f},{sy:.3f}) yaw={st.get('yaw')} dist={dist:.2f}m")
-                    return True
+                    # in position — but with a heading the base still turns in place at zero
+                    # linear speed, so also wait for the task to end (isTasking false),
+                    # giving up after settle_s in case the flag never clears
+                    in_place_since = in_place_since or now
+                    if not st.get("isTasking") or now - in_place_since > self.settle_s:
+                        yaw = st.get("yaw")
+                        err = ""
+                        if yaw is not None:
+                            actual_deg = math.degrees(float(yaw)) % 360
+                            diff = (actual_deg - target_deg + 180) % 360 - 180
+                            err = f" heading actual={actual_deg:.1f}deg target={target_deg:.1f}deg diff={diff:+.1f}deg"
+                        _log(f"arrived at ({sx:.3f},{sy:.3f}) dist={dist:.2f}m{err}"
+                             + ("" if not st.get("isTasking") else " (isTasking still set)"))
+                        return True
+                    last_move = now   # turning in place is progress, not a stall
+                else:
+                    in_place_since = None
                 # stall detection: position unchanged for a while and not arrived -> fail
                 if last_pos and math.hypot(sx - last_pos[0], sy - last_pos[1]) > 0.01:
-                    last_move = loop.time()
+                    last_move = now
                 last_pos = (sx, sy)
-            now = loop.time()
             if now - last_move > self.stall_s or now - t0 > self.hard_cap_s:
                 why = "stalled" if now - last_move > self.stall_s else "timed out"
                 _log(f"moveTo {why}: at {last_pos} target ({x:.3f},{y:.3f}) "

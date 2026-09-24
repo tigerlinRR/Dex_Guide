@@ -88,9 +88,12 @@ Wired (Mac on the same switch): `192.168.12.x`; the robot's internal net is also
   stall details, and run_stop.py's own output. **Jetson clock is CST (UTC+8).**
 - UI rules the user set: no "replay" button (rejected as redundant); every step is
   operator-triggered except that Guide2–4 present automatically on arrival.
-- `moveTo` accepts a `yaw`, but its units are unverified (POIs report degrees), so RealChassis
-  still sends only x,y — the arrival heading is whatever the planner picks. Verify on-site,
-  then send `yaw`.
+- **Heading**: until 2026-09-24 only x,y was sent, so map heading edits had no effect (Guide4
+  kept facing the wrong way). RealChassis now sends the POI heading as `yaw` in **degrees
+  (assumed** — same SDK's goHome takes degrees and docks; `GUIDE_MOVETO_YAW=deg|rad|off`).
+  Arrival waits for `isTasking` to clear (the base turns in place at zero speed) and logs
+  `heading actual/target/diff` — check that line after the first run to confirm the unit.
+  `/api/state` reports `yaw` in radians.
 
 ## The robot-api wrapper (/opt/robot-api, PM2 name "robot-api", :3000)
 
