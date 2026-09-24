@@ -16,7 +16,7 @@ import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
-from guide.config import DEFAULT_CONFIG, load_stations
+from guide.config import DEFAULT_CONFIG, load_home, load_stations
 from guide.engine import TourEngine
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
@@ -54,14 +54,15 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Dex Guide Console")
     hub = Hub()
     backend = os.environ.get("GUIDE_BACKEND", "sim")
-    stations = load_stations(os.environ.get("GUIDE_STATIONS", DEFAULT_CONFIG))
+    stations_path = os.environ.get("GUIDE_STATIONS", DEFAULT_CONFIG)
+    stations = load_stations(stations_path)
     chassis, arm, hand, audio, stop_runner = _make_hardware(backend)
 
     async def on_change(snapshot: dict) -> None:
         await hub.broadcast({**snapshot, "backend": backend})
 
     engine = TourEngine(stations, chassis, arm, hand, audio, on_change=on_change,
-                        stop_runner=stop_runner)
+                        stop_runner=stop_runner, home=load_home(stations_path))
     app.state.engine = engine
     app.state.backend = backend
 

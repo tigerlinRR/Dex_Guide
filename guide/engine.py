@@ -19,10 +19,11 @@ via on_change.
 from __future__ import annotations
 
 import asyncio
+import time
 from enum import Enum
 from typing import Awaitable, Callable
 
-from guide.config import Station
+from guide.config import Home, Station
 from guide.hardware.base import Arm, Audio, Chassis, Hand
 from guide.hardware.stop_runner import StopRunner
 
@@ -45,6 +46,7 @@ class TourEngine:
         audio: Audio,
         on_change: Callable[[dict], Awaitable[None]] | None = None,
         stop_runner: StopRunner | None = None,
+        home: Home | None = None,
     ):
         self.stations = stations
         self.chassis = chassis
@@ -53,6 +55,8 @@ class TourEngine:
         self.audio = audio
         self._on_change = on_change
         self.stop_runner = stop_runner
+        self.home = home
+        self.returning = False                   # heading to (or failed to reach) the charger
         # True while a run_stop playback may have left the arms out of the travel pose
         # (it was interrupted or failed) — the next drive tucks them first.
         self._arms_out = False
@@ -60,6 +64,7 @@ class TourEngine:
         self.state = State.IDLE
         self.current_index: int | None = None   # current / last station
         self.arrived = False                     # did we actually reach current_index?
+        self.presented = False                   # has current_index's presentation started?
         self.status_text = "Idle"
         self._task: asyncio.Task | None = None   # the action sequence currently running
 
@@ -70,6 +75,9 @@ class TourEngine:
             "status_text": self.status_text,
             "current_index": self.current_index,
             "arrived": self.arrived,
+            "presented": self.presented,
+            "returning": self.returning,
+            "home": self.home.name if self.home else None,
             "current_station": (
                 self.stations[self.current_index].id
                 if self.current_index is not None else None
@@ -85,12 +93,16 @@ class TourEngine:
     async def _emit(self, text: str | None = None) -> None:
         if text is not None:
             self.status_text = text
+            # one timestamped line per state change — the tour's log for later review
+            print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [tour] {self.state.value:<10} "
+                  f"stop={self.current_index} {text}", flush=True)
         if self._on_change:
             await self._on_change(self.snapshot())
 
     # -- operator commands -------------------------------------------------
     async def start(self) -> None:
-        """Start the tour from the first station (or restart after an e-stop)."""
+        """Start the tour: drive to the first stop and stop there WITHOUT presenting — the
+        operator then presses Next ("Start Guide1") to present it in place."""
         if self.state in (State.NAVIGATING, State.PRESENTING):
             return  # busy, ignore double-click
         if not self.stations:
@@ -102,6 +114,14 @@ class TourEngine:
         """Go to the next station. Valid only in WAITING (or IDLE) — pressed by the operator."""
         if self.state not in (State.WAITING, State.IDLE):
             return
+        if self.returning:
+            await self._start_return()          # retry a return that was paused/failed
+            return
+        if self.current_index is not None and self.arrived and not self.presented:
+            # parked at a stop that waits for the operator (the first one): present it now
+            await self._cancel_task()
+            self._task = asyncio.create_task(self._present_here(self.stations[self.current_index]))
+            return
         if self.current_index is None:
             nxt = 0
         elif not self.arrived:
@@ -109,6 +129,9 @@ class TourEngine:
         else:
             nxt = self.current_index + 1
         if nxt >= len(self.stations):
+            if self.home:
+                await self._start_return()      # after the last stop: back to the charger
+                return
             self.state = State.IDLE
             self.current_index = None
             self.arrived = False
@@ -135,6 +158,9 @@ class TourEngine:
         await asyncio.gather(self.chassis.cancel(), self.audio.stop(),
                              return_exceptions=True)
         self.state = State.WAITING
+        if self.returning:
+            await self._emit("Paused on the way to the charger")
+            return
         where = self.stations[self.current_index].name
         await self._emit(f"Paused {'at' if self.arrived else 'before reaching'} {where}")
 
@@ -146,6 +172,8 @@ class TourEngine:
         self.state = State.IDLE
         self.current_index = None
         self.arrived = False
+        self.presented = False
+        self.returning = False
         await self._emit("Tour ended")
 
     async def estop(self) -> None:
@@ -181,15 +209,14 @@ class TourEngine:
 
     async def _run_station(self, idx: int) -> None:
         station = self.stations[idx]
+        self.returning = False
         try:
+            self.current_index = idx
             # 1) navigate
             self.state = State.NAVIGATING
-            self.current_index = idx
             self.arrived = False
-            if self._arms_out and self.stop_runner:
-                await self._emit("Tucking arms before driving")
-                await self.stop_runner.tuck()
-                self._arms_out = False
+            self.presented = False
+            await self._tuck_if_needed()
             await self._emit(f"Going to {station.name}")
             p = station.chassis_pose
             ok = await self.chassis.navigate_to(
@@ -200,20 +227,61 @@ class TourEngine:
                 return
 
             self.arrived = True
-
-            # 2) present: audio + gesture concurrently
-            self.state = State.PRESENTING
-            await self._emit(f"Presenting: {station.name}")
-            await self._present(station)
-
-            # 3) wait for the operator
-            self.state = State.WAITING
-            await self._emit(f"Done · at {station.name} · waiting for Next")
+            if idx == 0:
+                # the first stop parks and waits: the operator starts it when the visitor is ready
+                self.state = State.WAITING
+                await self._emit(f"At {station.name} · press Start when ready")
+                return
+            await self._present_here(station)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # a single-station error must not wedge the whole robot
             self.state = State.WAITING
             await self._emit(f"{station.name} error: {exc}")
+
+    async def _tuck_if_needed(self) -> None:
+        if self._arms_out and self.stop_runner:
+            await self._emit("Tucking arms before driving")
+            await self.stop_runner.tuck()
+            self._arms_out = False
+
+    async def _start_return(self) -> None:
+        await self._cancel_task()
+        self._task = asyncio.create_task(self._run_return())
+
+    async def _run_return(self) -> None:
+        h = self.home
+        self.returning = True
+        try:
+            self.state = State.NAVIGATING
+            await self._tuck_if_needed()
+            await self._emit(f"Returning to {h.name}")
+            ok = await self.chassis.go_home(h.x, h.y, h.yaw_deg)
+            if not ok:
+                self.state = State.WAITING
+                await self._emit(f"Could not dock at {h.name} (cancelled or blocked)")
+                return
+            self.state = State.IDLE
+            self.current_index = None
+            self.arrived = False
+            self.presented = False
+            self.returning = False
+            await self._emit(f"Tour complete — docked at {h.name}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.state = State.WAITING
+            await self._emit(f"Return to charger error: {exc}")
+
+    async def _present_here(self, station: Station) -> None:
+        # 2) present: audio + gesture concurrently
+        self.state = State.PRESENTING
+        self.presented = True
+        await self._emit(f"Presenting: {station.name}")
+        await self._present(station)
+        # 3) wait for the operator
+        self.state = State.WAITING
+        await self._emit(f"Done · at {station.name} · waiting for Next")
 
     async def _present(self, station: Station) -> None:
         if station.run_stop and self.stop_runner:

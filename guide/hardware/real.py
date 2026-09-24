@@ -23,6 +23,7 @@ import asyncio
 import json
 import math
 import os
+import time
 import urllib.request
 
 from guide.hardware.base import Arm, Audio, Chassis, Hand
@@ -32,6 +33,10 @@ _NEEDS_ROBOT_SDK = (
     "directly from a Mac. Wire in Dex_Elevator's realman.py / linkerhand.py, or use the "
     "sim backend for now."
 )
+
+
+def _log(msg: str) -> None:
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [chassis] {msg}", flush=True)
 
 
 def _http(method: str, url: str, body: dict | None = None, timeout: float = 8.0):
@@ -75,6 +80,7 @@ class RealChassis(Chassis):
         # verified required x,y for now.
         await asyncio.to_thread(_http, "POST", f"{self.base}/api/moveTo",
                                 {"x": float(x), "y": float(y)})
+        _log(f"moveTo x={x:.3f} y={y:.3f} sent")
         loop = asyncio.get_event_loop()
         t0 = last_move = loop.time()
         last_pos = None
@@ -86,16 +92,43 @@ class RealChassis(Chassis):
             if sx is not None and sy is not None:
                 dist = math.hypot(sx - x, sy - y)
                 if dist < self.arrive_tol_m and abs(speed) < 1e-3:
+                    _log(f"arrived at ({sx:.3f},{sy:.3f}) yaw={st.get('yaw')} dist={dist:.2f}m")
                     return True
                 # stall detection: position unchanged for a while and not arrived -> fail
                 if last_pos and math.hypot(sx - last_pos[0], sy - last_pos[1]) > 0.01:
                     last_move = loop.time()
                 last_pos = (sx, sy)
             now = loop.time()
-            if now - last_move > self.stall_s:
+            if now - last_move > self.stall_s or now - t0 > self.hard_cap_s:
+                why = "stalled" if now - last_move > self.stall_s else "timed out"
+                _log(f"moveTo {why}: at {last_pos} target ({x:.3f},{y:.3f}) "
+                     f"errors={st.get('chassisErrors')}")
                 await self.cancel()
                 return False
-            if now - t0 > self.hard_cap_s:
+
+    async def go_home(self, x: float, y: float, yaw_deg: float) -> bool:
+        # goHome takes the pile's POI values verbatim (yaw in degrees); arrival = charging
+        await asyncio.to_thread(_http, "POST", f"{self.base}/api/goHome",
+                                {"x": float(x), "y": float(y), "yaw": float(yaw_deg)})
+        _log(f"goHome x={x:.3f} y={y:.3f} yaw={yaw_deg}deg sent")
+        loop = asyncio.get_event_loop()
+        t0 = last_move = loop.time()
+        last_pos = None
+        while True:
+            await asyncio.sleep(self.poll_s)
+            st = await self.get_state()
+            if st.get("isCharging"):
+                _log(f"docked, charging at ({st.get('x')},{st.get('y')})")
+                return True
+            sx, sy = st.get("x"), st.get("y")
+            if sx is not None and sy is not None:
+                if last_pos and math.hypot(sx - last_pos[0], sy - last_pos[1]) > 0.01:
+                    last_move = loop.time()
+                last_pos = (sx, sy)
+            now = loop.time()
+            # docking backs in slowly, so allow a longer stall than a plain moveTo
+            if now - last_move > self.stall_s * 2 or now - t0 > self.hard_cap_s * 2:
+                _log(f"goHome gave up: at {last_pos} errors={st.get('chassisErrors')}")
                 await self.cancel()
                 return False
 

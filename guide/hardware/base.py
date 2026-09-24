@@ -29,6 +29,11 @@ class Chassis(abc.ABC):
     async def cancel(self) -> None:
         """Immediately cancel the current move (e-stop)."""
 
+    async def go_home(self, x: float, y: float, yaw_deg: float) -> bool:
+        """Drive back to the charging pile at (x, y, yaw in degrees, as the robot's POI list
+        reports it) and dock. Blocks until charging, returns success."""
+        raise NotImplementedError
+
 
 class Arm(abc.ABC):
     @abc.abstractmethod

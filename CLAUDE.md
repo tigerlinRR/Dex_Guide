@@ -59,6 +59,21 @@ Wired (Mac on the same switch): `192.168.12.x`; the robot's internal net is also
   `~/dex_guide/run_stop.py <name>` (teleop conda env; needs `dex-teleop.service` up,
   which starts on boot). `~/dex_guide` is theirs — don't edit it. If a playback is
   interrupted, the engine runs `~/dex_guide/go_travel.py` before the next drive.
+- **Flow (user-defined 2026-09-23):** "Go to Guide1" drives there and PARKS without
+  presenting → "Start Guide1" presents in place → Next drives to Guide2/3/4, which present
+  automatically on arrival → after Guide4, "Return to charger". Rule in engine: stop index 0
+  never auto-presents (`presented` flag); every other stop does.
+- **After Guide4, Next = "Return to charger"**: robot-api `goHome` with the `home:` block in
+  stations.generated.yaml (POI "Charging pile - Dex Guide", values verbatim, yaw in degrees);
+  done when `isCharging` turns true. Unverified on the real robot.
+- **Tour log**: `~/Dex_Guide/logs/guide.log` on the Jetson (systemd appends stdout there —
+  the journal is volatile). Timestamped `[tour]` state changes, `[chassis]` moveTo/arrival/
+  stall details, and run_stop.py's own output. **Jetson clock is CST (UTC+8).**
+- UI rules the user set: no "replay" button (rejected as redundant); every step is
+  operator-triggered except that Guide2–4 present automatically on arrival.
+- `moveTo` accepts a `yaw`, but its units are unverified (POIs report degrees), so RealChassis
+  still sends only x,y — the arrival heading is whatever the planner picks. Verify on-site,
+  then send `yaw`.
 
 ## The robot-api wrapper (/opt/robot-api, PM2 name "robot-api", :3000)
 
@@ -95,8 +110,11 @@ arm/hand: `../Dex_Elevator/core/robot/realman.py` and `core/hand/linkerhand.py`.
 Interface-first (like Dex_Elevator):
 - `guide/hardware/base.py` — Chassis/Arm/Hand/Audio abstractions.
 - `guide/hardware/sim.py` — runs the whole flow with no hardware (dev machine).
-- `guide/hardware/real.py` — wires to the robot (RealChassis done against :3000; RealArm/Hand
-  pending JSON/SDK wiring; RealAudio is a placeholder pending WONDOM playback).
+- `guide/hardware/real.py` — RealChassis against :3000 (`moveTo` + `goHome`, arrival by
+  polling `/api/state`); RealAudio = `paplay` to WONDOM (unused when a stop has `run_stop:`);
+  RealArm/Hand are intentionally unimplemented — the tour's arms go through `run_stop.py`.
+- `guide/hardware/stop_runner.py` — calls `~/dex_guide/run_stop.py` / `go_travel.py` in the
+  teleop env, in its own process group so pause/e-stop kill the player and pw-play too.
 - `guide/engine.py` — tour state machine (IDLE -> NAVIGATING -> PRESENTING -> WAITING ->
   ESTOP; **"Next" is human-triggered**).
 - `guide/server.py` — FastAPI (REST + WebSocket) + `web/index.html` responsive console.
@@ -126,7 +144,8 @@ Runtime lives on the Jetson at `~/dex_guide/`; a clean snapshot is in `robot/`.
 - The **travel pose** (`robot/gestures/travel.json`) is the rest/return/inter-stop pose.
 - **`gesture_tool.py`** is the earlier hand-drag / direct-RealMan-`movej` authoring path —
   kept as a tech reserve + arm-read/drag utility, but NOT how the final tour plays.
-- **Not wired yet:** base navigation between stops (needs `robot-api :3000` `moveTo`).
+- **Wired to the UI (2026-09-23):** the console drives the base between stops and calls
+  `run_stop.py` per stop — see `## Tablet access & playback`.
 
 ## Run (sim, any laptop)
 
@@ -142,7 +161,7 @@ Real backend: `GUIDE_BACKEND=real` (must be able to reach the robot; run on/near
 5 tour stops Guide1–Guide5 (+ dock "Charging pile - Dex Guide"). Coordinates in
 `configs/stations.generated.yaml`. **Gesture + narration DONE for Guide1–4** (see
 `## Tour gesture+narration playback` and `robot/`); Guide5 was dropped by the user.
-Base navigation between stops is the remaining piece.
+Base navigation is wired; its first real run (heading, docking) is still to be verified.
 
 ## A gesture gotcha (from Dex_Elevator, re-verify here)
 

@@ -14,6 +14,10 @@ Environment=GUIDE_STATIONS=@DIR@/configs/stations.generated.yaml
 Environment=GUIDE_CHASSIS_HOST=127.0.0.1
 Environment=XDG_RUNTIME_DIR=/run/user/@UID@
 ExecStart=@DIR@/.venv/bin/uvicorn guide.server:app --host 0.0.0.0 --port 8600
+# append to a file: the Jetson's journal is volatile (lost on reboot); this log is the
+# tour record for later review, including run_stop.py's own output
+StandardOutput=append:@DIR@/logs/guide.log
+StandardError=inherit
 Restart=on-failure
 RestartSec=3
 

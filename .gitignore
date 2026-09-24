@@ -20,3 +20,4 @@ audio/*.mp3
 *.pem
 *.key
 VR/
+logs/

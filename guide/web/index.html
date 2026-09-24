@@ -158,10 +158,12 @@ async function post(path) {
 
 const busy = (s) => s.state === "NAVIGATING" || s.state === "PRESENTING";
 
-// The stop the big button will drive to, or null when the tour is on its last stop.
+// The stop the big button will drive to, or null when past the last stop (charger / finish).
 function naturalNext(s) {
+  if (s.returning) return null;
   if (s.current_index === null) return 0;
   if (!s.arrived) return s.current_index;           // never reached it: retry, don't skip
+  if (!s.presented) return s.current_index;         // parked at the first stop: start it here
   return s.current_index + 1 < s.stations.length ? s.current_index + 1 : null;
 }
 const label = (st) => st.name + (st.subtitle ? " · " + st.subtitle : "");
@@ -209,7 +211,7 @@ function render() {
   steps.innerHTML = "";
   s.stations.forEach((st, i) => {
     const el = document.createElement("button");
-    const done = cur !== null && (i < cur || (i === cur && s.arrived && !isBusy));
+    const done = cur !== null && (i < cur || (i === cur && s.presented && !isBusy));
     el.className = "step" + (done ? " done" : "") + (i === cur ? " here" : "") + (i === target ? " target" : "");
     el.innerHTML = `<b>${st.order}</b><span></span>`;
     el.querySelector("span").textContent = st.subtitle || st.name;
@@ -223,10 +225,15 @@ function render() {
   const here = cur !== null ? s.stations[cur] : null;
   let phase, where, sub;
   switch (s.state) {
-    case "NAVIGATING": phase = "Driving";        where = "Going to " + here.name; sub = here.subtitle; break;
+    case "NAVIGATING":
+      phase = "Driving";
+      if (s.returning) { where = "Returning to charger"; sub = s.home; }
+      else { where = "Going to " + here.name; sub = here.subtitle; }
+      break;
     case "PRESENTING": phase = "Presenting";     where = here.name; sub = here.subtitle; break;
     case "WAITING":
-      phase = s.arrived ? "Your turn" : "Stopped";
+      phase = s.returning || !s.arrived ? "Stopped" : (s.presented ? "Your turn" : "Arrived");
+      if (s.returning) { where = "On the way to the charger"; sub = s.home; break; }
       where = here.name; sub = here.subtitle; break;
     case "ESTOP":      phase = "Robot stopped";  where = "Emergency stop"; sub = "Check the area is clear, then press Reset."; break;
     default:           phase = "Ready";          where = cur === null ? "Tour not started" : here.name; sub = n + " stops"; break;
@@ -242,9 +249,11 @@ function render() {
   if (estop)            { text = "Robot stopped"; }
   else if (isBusy)      { text = s.state === "NAVIGATING" ? "Driving…" : "Presenting…"; }
   else if (target !== null) { text = "Go to " + s.stations[target].name; small = "Jump · " + (s.stations[target].subtitle || ""); }
-  else if (cur === null){ text = "Start tour"; small = "Go to " + label(s.stations[0]); }
+  else if (cur === null){ text = "Go to " + s.stations[0].name; small = "Drives there and waits · then press Start"; }
+  else if (nxt === null && s.home) { text = s.returning ? "Retry return to charger" : "Return to charger"; small = s.home; }
   else if (nxt === null){ text = "Finish tour"; }
   else if (!s.arrived)  { text = "Retry " + s.stations[nxt].name; small = "Robot hasn't reached this stop yet"; }
+  else if (!s.presented){ text = "Start " + s.stations[nxt].name; small = s.stations[nxt].subtitle || ""; }
   else                  { text = "Next: " + s.stations[nxt].name; small = s.stations[nxt].subtitle || ""; }
   main.innerHTML = ""; main.append(text);
   if (small) { const sm = document.createElement("small"); sm.textContent = small; main.append(sm); }

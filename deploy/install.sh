@@ -7,6 +7,7 @@ DIR="$(pwd)"; USER_NAME="$(id -un)"; USER_ID="$(id -u)"
 
 # The Jetson lacks python3.12-venv (no ensurepip), so build the venv without pip and
 # install into it with the system pip (--python) instead of apt-installing anything.
+mkdir -p logs
 [ -x .venv/bin/python ] || python3 -m venv --without-pip .venv
 python3 -m pip --python .venv/bin/python install -q -r requirements.txt
 

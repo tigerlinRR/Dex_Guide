@@ -45,6 +45,13 @@ class SimChassis(Chassis):
             _log(self.history, "navigate_cancelled", (x, y, ori))
         return ok
 
+    async def go_home(self, x: float, y: float, yaw_deg: float) -> bool:
+        self._interrupt.clear()
+        _log(self.history, "go_home_start", (x, y, yaw_deg))
+        ok = await _interruptible_sleep(self.nav_seconds, self._interrupt)
+        _log(self.history, "go_home_done" if ok else "go_home_cancelled", None)
+        return ok
+
     async def cancel(self) -> None:
         _log(self.history, "cancel", None)
         self._interrupt.set()

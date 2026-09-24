@@ -57,6 +57,24 @@ def _parse_station(raw: dict) -> Station:
     )
 
 
+@dataclass
+class Home:
+    name: str
+    x: float
+    y: float
+    yaw_deg: float                         # degrees, as the robot's POI list reports it
+
+
+def load_home(path: str) -> Home | None:
+    """The charging pile the tour returns to after the last stop (optional)."""
+    with open(path, "r", encoding="utf-8") as f:
+        h = (yaml.safe_load(f) or {}).get("home")
+    if not h:
+        return None
+    return Home(name=h.get("name", "Charger"), x=float(h["x"]), y=float(h["y"]),
+                yaw_deg=float(h["yaw_deg"]))
+
+
 def load_stations(path: str) -> list[Station]:
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}

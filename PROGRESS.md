@@ -2,6 +2,43 @@
 
 Dex_Guide progress log (newest first).
 
+## 2026-09-23 — Operator console wired to the robot (tablet control)
+
+### Flow (as the user defined it)
+1. **Go to Guide1** — drives there and parks, no presentation.
+2. **Start Guide1** — presents in place (`run_stop.py Guide1`).
+3. **Next: Guide2/3/4** — drives, presents automatically on arrival, waits for Next.
+4. **Return to charger** — robot-api `goHome` to POI "Charging pile - Dex Guide"; done when
+   `isCharging` turns true.
+
+### Console
+- Rebuilt `guide/web/index.html` for a salesperson: one big context button, Pause /
+  Stop talking while busy, stepper jump with a confirm tap, fixed STOP ROBOT, offline
+  lock-out. "Replay this stop" was built and then removed at the user's request.
+- Engine: never skips an unreached stop (`arrived`); pause keeps position; reset after
+  e-stop resumes the tour; if a playback was interrupted, `go_travel.py` tucks the arms
+  before the next drive. E-stop itself triggers no motion.
+- Gesture + narration are delegated to the finalized `~/dex_guide/run_stop.py` (no arm code
+  in `guide/`).
+
+### Deployment / access
+- Runs on the Jetson as systemd `dex-guide` (`~/Dex_Guide`, `deploy/push.sh`).
+- **Tablet (Android A50) joins the robot's hotspot `dex-teleop` → `http://10.42.0.1:8600`.**
+  The teleop hotspot takes the Jetson's only wifi radio, so Tailscale is offline while it
+  runs; maintenance goes over wired `192.168.12.131`.
+- Jetson lacks `python3.12-venv`: venv built `--without-pip`, deps installed with system pip.
+- Persistent tour log `~/Dex_Guide/logs/guide.log` (journal is volatile on this unit).
+
+### Verified
+- Sim: full flow incl. pause / e-stop / retry / return; browser UI states.
+- Robot: service up over the hotspot IP; `run_stop.py --list` from the service env; silent
+  `paplay` as the service user; teleop stack + both arms error-free; chassis connected.
+
+### Not yet verified (first supervised run)
+- First real `moveTo` and `goHome` (docking). Arrival heading — `moveTo` takes `yaw` but its
+  units are unconfirmed, so only x,y is sent for now.
+- Chassis warns "depth camera (ihawk_downward_node) need calibration".
+
 ## 2026-09-23 — Tour gestures + narration finished for all 4 stops (`robot/`)
 
 The per-stop gesture + narration playback is done and finalized. Runtime lives on the

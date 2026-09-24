@@ -4,6 +4,15 @@
 # run_stop: this stop's name in ~/dex_guide/stations.yaml on the Jetson. When set, the
 #   finalized run_stop.py playback plays gesture + narration and `audio:` is not used.
 
+# After the last stop the tour returns here and docks (robot-api goHome). Values are the
+# robot's own POI "Charging pile - Dex Guide" (type 9), copied verbatim — yaw in DEGREES.
+home:
+  name: "Charging pile - Dex Guide"
+  poi_id: "6ab1bff2d2f89a2e6afe7731"
+  x: 25.341945846551855
+  y: -15.366316540522734
+  yaw_deg: 162.72
+
 stations:
   - id: "6ab1c0af4f38299be615688e"
     order: 1
