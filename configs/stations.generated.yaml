@@ -53,7 +53,7 @@ stations:
     name: "Guide4"
     subtitle: "Engineering & Technicians"
     poi_name: "Guide4"
-    chassis_pose: {x: 3.7844, y: -3.7500, ori: 3.7149}   # yaw=212.85 deg
+    chassis_pose: {x: 3.6092, y: -3.8283, ori: 3.5446}   # yaw=203.09 deg
     audio: audio/wav/Guide4.wav
     run_stop: Guide4
     # gesture:             # TODO: record via VR

@@ -10,6 +10,10 @@
 Notes for a future Claude working in this repo. Style follows Dex_Elevator: record
 only the non-obvious, easy-to-trip-over facts.
 
+**Always reply to the user in Chinese (中文)** — every message, including short progress
+notes between tool calls. Code, comments and commit messages stay in English. The user has
+had to correct this repeatedly.
+
 ## What this is
 
 **Dex_Guide** — turns the Richtech DEX robot into a **semi-automatic office tour
