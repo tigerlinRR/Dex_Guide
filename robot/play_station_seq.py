@@ -42,7 +42,7 @@ def main():
     if sink:
         for c in (['set-default-sink', sink], ['set-sink-mute', sink, '0'], ['set-sink-volume', sink, '85%']):
             subprocess.run(['pactl'] + c, stderr=subprocess.DEVNULL)
-        subprocess.run(['sox', '-n', '-t', 'wav', '/tmp/beep.wav', 'synth', '0.2', 'sine', '660', 'gain', '-6'], stderr=subprocess.DEVNULL)
+        subprocess.run(['sox', '-n', '-t', 'wav', '/tmp/beep.wav', 'trim', '0.0', '0.5'], stderr=subprocess.DEVNULL)  # silent sink wake
         subprocess.run(['pw-play', '--target', sink, '/tmp/beep.wav'], stderr=subprocess.DEVNULL)
 
     # narration starts first; every gesture segment (including the first) fires at its

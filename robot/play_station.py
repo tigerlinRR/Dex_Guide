@@ -55,7 +55,7 @@ def main():
         subprocess.run(['pactl', 'set-default-sink', sink], stderr=subprocess.DEVNULL)
         subprocess.run(['pactl', 'set-sink-mute', sink, '0'], stderr=subprocess.DEVNULL)
         subprocess.run(['pactl', 'set-sink-volume', sink, '85%'], stderr=subprocess.DEVNULL)
-        subprocess.run(['sox', '-n', '-t', 'wav', '/tmp/beep.wav', 'synth', '0.2', 'sine', '660', 'gain', '-6'],
+        subprocess.run(['sox', '-n', '-t', 'wav', '/tmp/beep.wav', 'trim', '0.0', '0.5'],  # silent sink wake
                        stderr=subprocess.DEVNULL)
         subprocess.run(['pw-play', '--target', sink, '/tmp/beep.wav'], stderr=subprocess.DEVNULL)  # wake sink
 
