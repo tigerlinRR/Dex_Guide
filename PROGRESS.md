@@ -2,6 +2,38 @@
 
 Dex_Guide progress log (newest first).
 
+## 2026-09-28 — Phase closed. Ready-to-go resume guide
+
+Demo-ready and paused here. Everything on the Jetson is committed to GitHub (this repo +
+`robot/` snapshot); nothing local is unsynced. Torso lift and the "silent sink wake" (no
+more beep before each clip) landed since the 09-24 milestone. Pick-up notes for next time:
+
+**Connect to the robot** (Jetson `rr@192.168.12.131`, key auth):
+- Wired: set the Mac's en0 to `192.168.12.50`, plug the cable. **Gotcha we hit:** if ping/SSH
+  time out but `arp -n 192.168.12.131` resolves a MAC, it's a stale ARP entry — `sudo arp -d
+  192.168.12.131` and retry. Tailscale (`100.82.223.73`) only works when the robot is NOT
+  running its `dex-teleop` hotspot (the hotspot takes its only wifi radio).
+- Tablet/operator: robot runs the `dex-teleop` hotspot; join it and open `http://10.42.0.1:8600`.
+
+**Run a tour:**
+- From the tablet console (systemd `dex-guide`, auto-starts on boot): Go to Guide1 → Start →
+  Next through Guide2/3/4 (auto-present on arrival) → Return to charger.
+- One stop by hand on the Jetson: `conda activate teleop; python ~/dex_guide/run_stop.py Guide2`
+  (or `run_tour.py` for all four). Needs the teleop stack up (`dex-teleop.service`, on boot).
+
+**Current tuned values** (all in `robot/`, editable without code changes):
+- Lift: drive 800mm / present 1000mm (`run_stop.py` env `LIFT_DRIVE_MM`/`LIFT_PRESENT_MM`;
+  `LIFT_ENABLE=0` to disable). Hardware ceiling ~1130mm.
+- Per-stop gesture timing + narration cues: `robot/stations.yaml`.
+
+**What to pick up next** (nothing blocking a demo):
+- `moveTo` `yaw` units unverified → arrival heading is planner's choice (only x,y sent).
+- Chassis warns "depth camera (ihawk_downward_node) need calibration".
+- Optional: hold the lift up through the whole stop (incl. the operator↔customer wait), not
+  just the narration — needs an engine hook (raise in `_present_here`, lower before `navigate_to`).
+- Note: the Richtech stock `audio` plugin grabs the PowerConf mic (periodic thump); disable it
+  in `/etc/richtech/richtech.yaml` if the robot's own voice I/O isn't wanted.
+
 ## 2026-09-24 — MILESTONE: tablet-driven tours run end to end on the real robot
 
 **What works:** a salesperson drives a full 4-stop tour from a tablet — Go to Guide1 →
